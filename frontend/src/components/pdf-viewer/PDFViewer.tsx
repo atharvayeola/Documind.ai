@@ -1017,53 +1017,67 @@ export default function PDFViewer({ url, documentId, onTextSelect }: PDFViewerPr
                                             // Use width/height from original selection
                                             width: text.width ? `${text.width}%` : 'auto',
                                             height: text.height ? `${text.height}%` : 'auto',
-                                            minWidth: '30px',
+                                            minWidth: '50px',
                                             minHeight: '20px',
                                             resize: 'both',
-                                            overflow: 'auto',
+                                            overflow: 'visible',
                                         }}
                                     >
+                                        {/* Drag bar at top - always visible on hover */}
                                         <div
-                                            className="absolute -left-5 top-0 opacity-0 group-hover:opacity-100 cursor-grab p-0.5 bg-white/80 rounded shadow-sm border border-gray-200 no-print"
+                                            className="absolute -top-5 left-0 right-0 h-5 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 bg-blue-500 rounded-t-md shadow-sm no-print"
                                             onMouseDown={(e) => handleMouseDown(e, text.id, 'text')}
                                         >
-                                            <Move size={10} className="text-gray-500" />
+                                            <Move size={12} className="text-white" />
+                                            <span className="text-[10px] font-medium text-white">Drag to move</span>
                                         </div>
 
-                                        <div
-                                            id={`text-edit-${text.id}`}
-                                            contentEditable
-                                            suppressContentEditableWarning
-                                            className="outline-none border border-transparent hover:border-blue-400 focus:border-blue-500 focus:bg-white/80 w-full h-full"
-                                            style={{
-                                                // Derive font size from selection height (approx 80% of rect height for text)
-                                                fontSize: text.height
-                                                    ? `${(text.height / 100) * (pageRef.current?.offsetHeight || 800) * 0.85}px`
-                                                    : '14px',
-                                                lineHeight: 1.2,
-                                                color: '#000000',
-                                                backgroundColor: 'white',
-                                                padding: '2px',
-                                                margin: 0,
-                                                display: 'block',
-                                                wordWrap: 'break-word',
-                                                whiteSpace: 'pre-wrap',
-                                            }}
-                                            dangerouslySetInnerHTML={{ __html: text.html }}
-                                            onFocus={(e) => {
-                                                setActiveTextId(text.id);
-                                                e.currentTarget.dataset.prev = text.html;
-                                            }}
-                                            onBlur={(e) => {
-                                                const prev = e.currentTarget.dataset.prev || '';
-                                                handleTextBlur(text.id, prev, e.currentTarget.innerHTML);
-                                                setActiveTextId(null);
-                                            }}
-                                        />
+                                        {/* Main content area with border on hover */}
+                                        <div className="relative w-full h-full border-2 border-transparent group-hover:border-blue-400 rounded-sm bg-white">
+                                            <div
+                                                id={`text-edit-${text.id}`}
+                                                contentEditable
+                                                suppressContentEditableWarning
+                                                className="outline-none w-full h-full focus:bg-blue-50/30"
+                                                style={{
+                                                    // Derive font size from selection height (approx 80% of rect height for text)
+                                                    fontSize: text.height
+                                                        ? `${(text.height / 100) * (pageRef.current?.offsetHeight || 800) * 0.85}px`
+                                                        : '14px',
+                                                    lineHeight: 1.2,
+                                                    color: '#000000',
+                                                    backgroundColor: 'transparent',
+                                                    padding: '2px',
+                                                    margin: 0,
+                                                    display: 'block',
+                                                    wordWrap: 'break-word',
+                                                    whiteSpace: 'pre-wrap',
+                                                }}
+                                                dangerouslySetInnerHTML={{ __html: text.html }}
+                                                onFocus={(e) => {
+                                                    setActiveTextId(text.id);
+                                                    e.currentTarget.dataset.prev = text.html;
+                                                }}
+                                                onBlur={(e) => {
+                                                    const prev = e.currentTarget.dataset.prev || '';
+                                                    handleTextBlur(text.id, prev, e.currentTarget.innerHTML);
+                                                    setActiveTextId(null);
+                                                }}
+                                            />
+
+                                            {/* Delete button */}
+                                            <button
+                                                onClick={() => deleteItem(text.id, 'text')}
+                                                className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm no-print"
+                                                title="Delete"
+                                            >
+                                                <X size={10} />
+                                            </button>
+                                        </div>
 
                                         {/* Resize handle indicator */}
-                                        <div className="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize opacity-0 group-hover:opacity-100 no-print">
-                                            <div className="w-2 h-2 border-r-2 border-b-2 border-gray-400 absolute bottom-0.5 right-0.5" />
+                                        <div className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize opacity-0 group-hover:opacity-100 no-print bg-blue-500 rounded-tl-md flex items-center justify-center">
+                                            <div className="w-2 h-2 border-r-2 border-b-2 border-white" />
                                         </div>
                                     </div>
                                 </div>
