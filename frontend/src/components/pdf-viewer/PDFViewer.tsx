@@ -1015,16 +1015,24 @@ export default function PDFViewer({ url, documentId, onTextSelect }: PDFViewerPr
                                             left: `${text.x}%`,
                                             top: `${text.y}%`,
                                         }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveTextId(text.id);
+                                        }}
                                     >
-                                        <div className="relative group">
-                                            {/* Drag bar at top - positioned above the resizable box */}
-                                            <div
-                                                className="absolute -top-6 left-0 right-0 h-6 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 bg-blue-500 rounded-t-md shadow-sm no-print z-10"
-                                                onMouseDown={(e) => handleMouseDown(e, text.id, 'text')}
-                                            >
-                                                <Move size={12} className="text-white" />
-                                                <span className="text-[10px] font-medium text-white">Drag to move</span>
-                                            </div>
+                                        {/* Wrapper for controls */}
+                                        <div className={`relative group transition-all ${activeTextId === text.id ? 'z-50' : 'z-30 hover:z-40'}`}>
+
+                                            {/* Drag bar - Only visible when ACTIVE */}
+                                            {activeTextId === text.id && (
+                                                <div
+                                                    className="absolute -top-6 left-0 right-0 h-6 cursor-grab active:cursor-grabbing flex items-center justify-center gap-1 bg-blue-500 rounded-t-md shadow-sm no-print z-10 animate-in fade-in slide-in-from-bottom-1 duration-200"
+                                                    onMouseDown={(e) => handleMouseDown(e, text.id, 'text')}
+                                                >
+                                                    <Move size={12} className="text-white" />
+                                                    <span className="text-[10px] font-medium text-white">Drag</span>
+                                                </div>
+                                            )}
 
                                             {/* Resizable container */}
                                             <div
@@ -1033,16 +1041,22 @@ export default function PDFViewer({ url, documentId, onTextSelect }: PDFViewerPr
                                                     height: text.height ? `${(text.height / 100) * (pageRef.current?.offsetHeight || 800)}px` : 'auto',
                                                     minWidth: '50px',
                                                     minHeight: '24px',
-                                                    resize: 'both',
-                                                    overflow: 'auto',
+                                                    resize: activeTextId === text.id ? 'both' : 'none',
+                                                    overflow: activeTextId === text.id ? 'auto' : 'hidden',
                                                 }}
-                                                className="border-2 border-transparent group-hover:border-blue-400 rounded-sm bg-white relative"
+                                                className={`
+                                                    rounded-sm transition-all duration-200
+                                                    ${activeTextId === text.id
+                                                        ? 'border-2 border-blue-400 bg-white shadow-lg ring-4 ring-blue-500/10'
+                                                        : 'border-2 border-transparent hover:border-blue-200/50 bg-transparent'
+                                                    }
+                                                `}
                                             >
                                                 <div
                                                     id={`text-edit-${text.id}`}
                                                     contentEditable
                                                     suppressContentEditableWarning
-                                                    className="outline-none w-full h-full min-h-[20px] focus:bg-blue-50/30"
+                                                    className={`outline-none w-full h-full min-h-[20px] transition-colors ${activeTextId === text.id ? 'cursor-text' : 'cursor-default'}`}
                                                     style={{
                                                         fontSize: text.height
                                                             ? `${(text.height / 100) * (pageRef.current?.offsetHeight || 800) * 0.85}px`
@@ -1064,23 +1078,28 @@ export default function PDFViewer({ url, documentId, onTextSelect }: PDFViewerPr
                                                     onBlur={(e) => {
                                                         const prev = e.currentTarget.dataset.prev || '';
                                                         handleTextBlur(text.id, prev, e.currentTarget.innerHTML);
-                                                        setActiveTextId(null);
+                                                        // Don't clear active ID here immediately to avoid flickering UI when clicking controls
                                                     }}
                                                 />
 
-                                                {/* Delete button - Fixed position inside container */}
-                                                <button
-                                                    onClick={() => deleteItem(text.id, 'text')}
-                                                    className="absolute top-0 right-0 p-1 bg-red-500 text-white rounded-bl-md opacity-0 group-hover:opacity-100 transition-opacity shadow-sm no-print z-20 hover:bg-red-600"
-                                                    title="Delete"
-                                                >
-                                                    <X size={10} />
-                                                </button>
+                                                {/* Controls only visible when ACTIVE */}
+                                                {activeTextId === text.id && (
+                                                    <>
+                                                        {/* Delete button */}
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); deleteItem(text.id, 'text'); }}
+                                                            className="absolute top-0 right-0 p-1 bg-red-500 text-white rounded-bl-md shadow-sm no-print z-20 hover:bg-red-600"
+                                                            title="Delete"
+                                                        >
+                                                            <X size={10} />
+                                                        </button>
 
-                                                {/* Resize handle indicator */}
-                                                <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none opacity-0 group-hover:opacity-50">
-                                                    <div className="w-full h-full border-r-2 border-b-2 border-blue-400" />
-                                                </div>
+                                                        {/* Resize handle indicator */}
+                                                        <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none">
+                                                            <div className="w-full h-full border-r-2 border-b-2 border-blue-400" />
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
