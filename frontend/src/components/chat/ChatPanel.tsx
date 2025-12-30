@@ -300,6 +300,12 @@ export default function ChatPanel({ documentId, filename, onCitationClick }: Cha
         // Only clear input if this is a new message from input
         if (!overrideText || isEvent) {
             setInput('');
+            // Reset the textarea's undo history by blurring and clearing value directly
+            if (inputRef.current) {
+                inputRef.current.value = '';
+                inputRef.current.blur();
+                setTimeout(() => inputRef.current?.focus(), 0);
+            }
         }
 
         // Add optimistic user message only if new
