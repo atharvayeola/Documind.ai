@@ -423,6 +423,11 @@ export default function PDFViewer({ url, documentId, onTextSelect }: PDFViewerPr
 
     // --- Creation ---
     const handlePageClick = (e: React.MouseEvent) => {
+        // Always clear active text edit when clicking on the page background (if not clicking an annotation)
+        if (!(e.target as HTMLElement).closest('.annotation-item')) {
+            setActiveTextId(null);
+        }
+
         if (highlightMode) return;
         // Don't create if clicking on existing item
         if ((e.target as HTMLElement).closest('.annotation-item')) return;
@@ -1023,14 +1028,31 @@ export default function PDFViewer({ url, documentId, onTextSelect }: PDFViewerPr
                                         {/* Wrapper for controls */}
                                         <div className={`relative group transition-all ${activeTextId === text.id ? 'z-50' : 'z-30 hover:z-40'}`}>
 
-                                            {/* Drag bar - Only visible when ACTIVE */}
+                                            {/* Floating Toolbar - Centered above */}
                                             {activeTextId === text.id && (
                                                 <div
-                                                    className="absolute -top-6 left-0 right-0 h-6 cursor-grab active:cursor-grabbing flex items-center justify-center gap-1 bg-blue-500 rounded-t-md shadow-sm no-print z-10 animate-in fade-in slide-in-from-bottom-1 duration-200"
-                                                    onMouseDown={(e) => handleMouseDown(e, text.id, 'text')}
+                                                    className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white rounded-md shadow-md border border-gray-200 p-1 no-print z-50 animate-in fade-in zoom-in-95 duration-100"
+                                                    onMouseDown={(e) => e.stopPropagation()}
                                                 >
-                                                    <Move size={12} className="text-white" />
-                                                    <span className="text-[10px] font-medium text-white">Drag</span>
+                                                    {/* Drag Handle */}
+                                                    <div
+                                                        className="cursor-move p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-blue-600 flex items-center"
+                                                        onMouseDown={(e) => handleMouseDown(e, text.id, 'text')}
+                                                        title="Drag to move"
+                                                    >
+                                                        <Move size={14} />
+                                                    </div>
+
+                                                    <div className="w-px h-3 bg-gray-200 mx-1" />
+
+                                                    {/* Delete Button */}
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); deleteItem(text.id, 'text'); }}
+                                                        className="p-1 hover:bg-red-50 text-gray-500 hover:text-red-500 rounded flex items-center"
+                                                        title="Delete"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
                                                 </div>
                                             )}
 
@@ -1047,8 +1069,8 @@ export default function PDFViewer({ url, documentId, onTextSelect }: PDFViewerPr
                                                 className={`
                                                     rounded-sm transition-all duration-200
                                                     ${activeTextId === text.id
-                                                        ? 'border-2 border-blue-400 bg-white shadow-lg ring-4 ring-blue-500/10'
-                                                        : 'border-2 border-transparent hover:border-blue-200/50 bg-transparent'
+                                                        ? 'border border-blue-500 bg-white ring-2 ring-blue-500/10'
+                                                        : 'border border-transparent hover:border-blue-200/50 bg-transparent'
                                                     }
                                                 `}
                                             >
@@ -1082,23 +1104,13 @@ export default function PDFViewer({ url, documentId, onTextSelect }: PDFViewerPr
                                                     }}
                                                 />
 
-                                                {/* Controls only visible when ACTIVE */}
-                                                {activeTextId === text.id && (
-                                                    <>
-                                                        {/* Delete button */}
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); deleteItem(text.id, 'text'); }}
-                                                            className="absolute top-0 right-0 p-1 bg-red-500 text-white rounded-bl-md shadow-sm no-print z-20 hover:bg-red-600"
-                                                            title="Delete"
-                                                        >
-                                                            <X size={10} />
-                                                        </button>
+                                                {/* Controls from here handled by floating toolbar */}
 
-                                                        {/* Resize handle indicator */}
-                                                        <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none">
-                                                            <div className="w-full h-full border-r-2 border-b-2 border-blue-400" />
-                                                        </div>
-                                                    </>
+                                                {/* Resize handle indicator - Only visible when active */}
+                                                {activeTextId === text.id && (
+                                                    <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none">
+                                                        <div className="w-full h-full border-r-2 border-b-2 border-blue-500/50" />
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
