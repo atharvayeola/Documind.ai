@@ -1,0 +1,44 @@
+# Python
+*.py[cod]
+__pycache__/
+*.so
+.Python
+venv/
+.venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Node.js
+node_modules/
+.next/
+out/
+
+# Environment files (keep examples)
+.env
+.env.local
+.env.production
+!.env.example
+!env.example
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Storage (temp files)
+backend/storage/uploads/*
+!backend/storage/uploads/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/

@@ -1,0 +1,9 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "documind-backend"
+version = "1.0.0"
+description = "Documind.ai Backend - PDF Copilot for Professional Services"
+requires-python = ">=3.9"
