@@ -1017,6 +1017,10 @@ export default function PDFViewer({ url, documentId, onTextSelect }: PDFViewerPr
                                             // Use width/height from original selection
                                             width: text.width ? `${text.width}%` : 'auto',
                                             height: text.height ? `${text.height}%` : 'auto',
+                                            minWidth: '30px',
+                                            minHeight: '20px',
+                                            resize: 'both',
+                                            overflow: 'auto',
                                         }}
                                     >
                                         <div
@@ -1030,19 +1034,20 @@ export default function PDFViewer({ url, documentId, onTextSelect }: PDFViewerPr
                                             id={`text-edit-${text.id}`}
                                             contentEditable
                                             suppressContentEditableWarning
-                                            className="outline-none border border-transparent hover:border-blue-400 focus:border-blue-500 focus:bg-white/80 whitespace-nowrap"
+                                            className="outline-none border border-transparent hover:border-blue-400 focus:border-blue-500 focus:bg-white/80 w-full h-full"
                                             style={{
                                                 // Derive font size from selection height (approx 80% of rect height for text)
                                                 fontSize: text.height
                                                     ? `${(text.height / 100) * (pageRef.current?.offsetHeight || 800) * 0.85}px`
                                                     : '14px',
-                                                lineHeight: 1,
+                                                lineHeight: 1.2,
                                                 color: '#000000',
                                                 backgroundColor: 'white',
-                                                padding: 0,
+                                                padding: '2px',
                                                 margin: 0,
-                                                display: 'inline-block',
-                                                minWidth: text.width ? '100%' : '30px',
+                                                display: 'block',
+                                                wordWrap: 'break-word',
+                                                whiteSpace: 'pre-wrap',
                                             }}
                                             dangerouslySetInnerHTML={{ __html: text.html }}
                                             onFocus={(e) => {
@@ -1055,6 +1060,11 @@ export default function PDFViewer({ url, documentId, onTextSelect }: PDFViewerPr
                                                 setActiveTextId(null);
                                             }}
                                         />
+
+                                        {/* Resize handle indicator */}
+                                        <div className="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize opacity-0 group-hover:opacity-100 no-print">
+                                            <div className="w-2 h-2 border-r-2 border-b-2 border-gray-400 absolute bottom-0.5 right-0.5" />
+                                        </div>
                                     </div>
                                 </div>
                             ))}
