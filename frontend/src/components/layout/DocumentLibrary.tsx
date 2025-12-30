@@ -133,7 +133,11 @@ export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar',
             case 'ready':
                 return <CheckCircle size={16} className="text-[var(--success)]" />;
             case 'failed':
-                return <AlertCircle size={16} className="text-[var(--error)]" title="Processing failed" />;
+                return (
+                    <span title="Processing failed" className="flex items-center">
+                        <AlertCircle size={16} className="text-[var(--error)]" />
+                    </span>
+                );
         }
     };
 
