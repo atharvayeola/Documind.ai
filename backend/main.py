@@ -29,9 +29,18 @@ app = FastAPI(
 )
 
 # CORS for frontend
+import os
+allowed_origins = [
+    "http://localhost:3000",
+    os.getenv("FRONTEND_URL", ""),  # Set this in Railway
+]
+# Also allow any vercel.app subdomain
+allowed_origins = [origin for origin in allowed_origins if origin]  # Remove empty
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",  # Allow all Vercel preview URLs
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
