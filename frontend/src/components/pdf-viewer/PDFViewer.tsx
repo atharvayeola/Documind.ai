@@ -38,6 +38,8 @@ import {
     Check,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
+import { api } from '@/lib/api';
+import { getErrorMessage } from '@/lib/api';
 
 import 'react-pdf/dist/Page/TextLayer.css';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -477,7 +479,8 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
 
         try {
             const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
-            const existingPdfBytes = await fetch(url).then(res => res.arrayBuffer());
+            const response = await api.get(url, { responseType: 'arraybuffer' });
+            const existingPdfBytes = response.data;
             const pdfDoc = await PDFDocument.load(existingPdfBytes);
             const pages = pdfDoc.getPages();
             const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -558,7 +561,8 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
             document.body.removeChild(link);
         } catch (err) {
             console.error("Failed to save PDF:", err);
-            alert("Failed to generate PDF. See console.");
+            const msg = getErrorMessage(err);
+            alert(`Failed to generate PDF: ${msg}`);
         }
     };
 
