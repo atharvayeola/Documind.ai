@@ -133,7 +133,7 @@ export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar',
             case 'ready':
                 return <CheckCircle size={16} className="text-[var(--success)]" />;
             case 'failed':
-                return <AlertCircle size={16} className="text-[var(--error)]" />;
+                return <AlertCircle size={16} className="text-[var(--error)]" title="Processing failed" />;
         }
     };
 
@@ -230,6 +230,7 @@ export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar',
                                     key={doc.id}
                                     onClick={() => doc.status === 'ready' && onDocumentSelect(doc)}
                                     className="flex items-center gap-4 p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-300 hover:shadow-md cursor-pointer transition-all group"
+                                    title={doc.status === 'ready' ? "Open Document" : "Processing..."}
                                 >
                                     <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-blue-600 group-hover:bg-blue-50 transition-colors">
                                         <FileText size={20} />
@@ -282,6 +283,7 @@ export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar',
                                 : 'border-[var(--border)] hover:border-[var(--muted)] hover:bg-[var(--card-hover)]'
                             }
               `}
+                        title="Upload PDF Document"
                     >
                         <input {...getInputProps()} />
 
@@ -337,6 +339,7 @@ export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar',
                                         : 'opacity-70'
                                     }
                 `}
+                                title={doc.status === 'ready' ? "Open Document" : "Processing..."}
                             >
                                 <div className="flex items-start gap-3">
                                     <div className="w-10 h-10 rounded-lg bg-[var(--primary-glow)] flex items-center justify-center flex-shrink-0">
@@ -366,6 +369,7 @@ export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar',
                                     <button
                                         onClick={(e) => handleDelete(doc.id, e)}
                                         className="p-2 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-[var(--error)]/10 text-[var(--muted)] hover:text-[var(--error)] transition-all"
+                                        title="Delete Document"
                                     >
                                         <Trash2 size={16} />
                                     </button>

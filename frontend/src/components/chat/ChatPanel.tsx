@@ -29,6 +29,7 @@ import {
     Paperclip,
     Trash2,
     FileText,
+    Share,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { useAuthStore } from '@/store/authStore';
@@ -170,11 +171,13 @@ export default function ChatPanel({ documentId, filename, onCitationClick }: Cha
     const [searchQuery, setSearchQuery] = useState('');
     const [showSearch, setShowSearch] = useState(false);
     const [showHistoryDropdown, setShowHistoryDropdown] = useState(false);
+    const [showShareDropdown, setShowShareDropdown] = useState(false);
     const [isNewChat, setIsNewChat] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const historyRef = useRef<HTMLDivElement>(null);
+    const shareRef = useRef<HTMLDivElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
 
     // Close dropdowns when clicking outside
@@ -182,6 +185,9 @@ export default function ChatPanel({ documentId, filename, onCitationClick }: Cha
         const handleClickOutside = (event: MouseEvent) => {
             if (historyRef.current && !historyRef.current.contains(event.target as Node)) {
                 setShowHistoryDropdown(false);
+            }
+            if (shareRef.current && !shareRef.current.contains(event.target as Node)) {
+                setShowShareDropdown(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -485,6 +491,16 @@ export default function ChatPanel({ documentId, filename, onCitationClick }: Cha
         a.download = `chat-export-${new Date().toISOString().slice(0, 10)}.md`;
         a.click();
         URL.revokeObjectURL(url);
+        setShowShareDropdown(false);
+    };
+
+    const copyLatestAnalysis = async () => {
+        const lastAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant');
+        if (lastAssistantMessage) {
+            await navigator.clipboard.writeText(lastAssistantMessage.content);
+            // Optionally show a toast here, but for now we'll just close the dropdown
+            setShowShareDropdown(false);
+        }
     };
 
     const MessageContent = ({ content, citations }: { content: string, citations?: Citation[] }) => {
@@ -557,12 +573,61 @@ export default function ChatPanel({ documentId, filename, onCitationClick }: Cha
                     </div>
                 </div>
                 <div className="flex items-center gap-1">
+                    {/* Share / Export */}
+                    <div className="relative" ref={shareRef}>
+                        <button
+                            onClick={() => setShowShareDropdown(!showShareDropdown)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${showShareDropdown ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                            title="Export or Share Analysis"
+                        >
+                            <Share size={16} />
+                            <span className="hidden sm:inline">Share</span>
+                        </button>
+                        <AnimatePresence>
+                            {showShareDropdown && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                                    className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-50 origin-top-right"
+                                >
+                                    <div className="p-1">
+                                        <button
+                                            onClick={copyLatestAnalysis}
+                                            disabled={messages.length === 0}
+                                            className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <Copy size={16} className="text-slate-400" />
+                                            <div>
+                                                <div className="font-medium">Copy Summary</div>
+                                                <div className="text-[10px] text-slate-400">Copy latest AI response</div>
+                                            </div>
+                                        </button>
+                                        <button
+                                            onClick={exportChat}
+                                            disabled={messages.length === 0}
+                                            className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <FileText size={16} className="text-slate-400" />
+                                            <div>
+                                                <div className="font-medium">Download Transcript</div>
+                                                <div className="text-[10px] text-slate-400">Save full Q&A as text</div>
+                                            </div>
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                    <div className="w-[1px] h-5 bg-slate-200 mx-1" />
+
                     {/* History Dropdown */}
                     <div className="relative" ref={historyRef}>
                         <button
                             onClick={() => setShowHistoryDropdown(!showHistoryDropdown)}
                             className={`p-2 rounded-md transition-colors ${showHistoryDropdown ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-50 text-slate-500'}`}
-                            title="Chat history"
+                            title="View Chat History"
                         >
                             <History size={18} />
                         </button>
@@ -602,21 +667,21 @@ export default function ChatPanel({ documentId, filename, onCitationClick }: Cha
                     <button
                         onClick={() => setShowSearch(!showSearch)}
                         className={`p-2 rounded-md transition-colors ${showSearch ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-50 text-slate-500'}`}
-                        title="Search messages"
+                        title="Search within chat"
                     >
                         <Search size={18} />
                     </button>
                     <button
                         onClick={handleClearChat}
                         className="p-2 rounded-md hover:bg-slate-50 text-slate-500 hover:text-red-500 transition-colors"
-                        title="Clear chat"
+                        title="Clear current chat"
                     >
                         <Trash2 size={18} />
                     </button>
                     <button
                         onClick={startNewChat}
                         className="p-2 rounded-md hover:bg-slate-50 text-slate-500 transition-colors"
-                        title="New chat"
+                        title="Start new chat"
                     >
                         <Plus size={18} />
                     </button>

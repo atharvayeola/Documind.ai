@@ -138,7 +138,7 @@ export default function MainLayout() {
                     <button
                         onClick={() => setShowSidebar(!showSidebar)}
                         className="p-2 rounded-md hover:bg-slate-100 text-slate-500 transition-colors"
-                        title="Toggle Sidebar"
+                        title={showSidebar ? "Close Sidebar" : "Open Sidebar"}
                     >
                         <PanelLeft size={20} />
                     </button>
@@ -162,10 +162,7 @@ export default function MainLayout() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <button className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-md transition-colors">
-                        <Share size={16} />
-                        Share
-                    </button>
+                    {/* Share removed - moved to ChatPanel */}
                     <UserMenu />
                 </div>
             </header>
@@ -277,6 +274,7 @@ function UserMenu() {
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 hover:bg-blue-200 transition-colors border-2 border-white ring-2 ring-transparent hover:ring-blue-100"
+                title="Account Settings"
             >
                 {user.picture ? (
                     <img src={user.picture} alt={user.name} className="w-full h-full rounded-full object-cover" />
