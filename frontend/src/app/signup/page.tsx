@@ -102,7 +102,7 @@ export default function SignupPage() {
             <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
                 <div className="text-center mb-8">
                     <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg shadow-blue-500/20">
-                        <Zap size={24} fill="currentColor" />
+                        <span className="font-bold text-2xl tracking-tight">D</span>
                     </div>
                     <h1 className="text-2xl font-bold text-slate-900">Create Account</h1>
                     <p className="text-slate-500 mt-2">Get started with Documind.ai today</p>

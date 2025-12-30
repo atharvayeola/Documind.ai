@@ -92,7 +92,7 @@ export default function LoginModal() {
 
                 <div className="text-center mb-6">
                     <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3 text-white shadow-lg shadow-blue-500/20">
-                        <Zap size={20} fill="currentColor" />
+                        <span className="font-bold text-xl tracking-tight">D</span>
                     </div>
                     <h2 className="text-xl font-bold text-slate-900">Sign in to continue</h2>
                     <p className="text-slate-500 text-sm mt-1">Save your work and access Documind.ai features</p>
