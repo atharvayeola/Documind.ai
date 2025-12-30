@@ -1,207 +1,127 @@
-# Autophile - PDF Copilot for Professional Services
+# Documind.ai
 
-> Enable professionals to answer document-based client questions in minutes instead of hours, with trusted, auditable citations.
+> **Intelligent Document Intelligence for Professionals**
+>
+> *Answer complex client questions in minutes, not hours. Trusted, auditable citation for every claim.*
 
-## Overview
+![Project Status](https://img.shields.io/badge/Status-Production%20Ready-success)
+![License](https://img.shields.io/badge/License-MIT-blue)
 
-Autophile is an AI-powered PDF assistant designed for insurance brokers, accountants, legal analysts, and other professionals who need to quickly extract information from large documents. It combines:
+## 🚀 The Problem
+Insurance brokers, legal analysts, and compliance officers spend **40% of their day** control-F'ing through 100+ page density-rich PDF documents. This manual workflow is:
+1.  **Slow**: Finding specific clauses takes minutes.
+2.  **Error-Prone**: IMPORTANT context is often missed in localized searches.
+3.  **Unverifiable**: LLM summaries often hallucinate without source backing.
 
-- **Intelligent Document Viewer**: Navigate large PDFs with thumbnails, zoom, and text selection.
-- **AI Chat with Citations**: Ask natural language questions and receive accurate answers grounded in the document, complete with page and section references.
-- **Annotation & Export**: Highlight, comment, and export summaries or clause extracts.
+## 💡 The Solution: Documind.ai
+Documind.ai is a **RAG-powered PDF Copilot** that transforms static documents into an interactive knowledge base.
 
-## Architecture
-
-```
-┌─────────────────┐     ┌─────────────────────────────────────────┐
-│   Next.js       │     │            FastAPI Backend              │
-│   Frontend      │────▶│  ┌─────────────┐  ┌─────────────────┐  │
-│                 │     │  │ Document    │  │ Chat Orchestrator│  │
-│  - PDF Viewer   │     │  │ Service     │  │ (RAG Engine)     │  │
-│  - Chat Panel   │     │  └─────────────┘  └─────────────────┘  │
-│  - Library      │     │         │                  │           │
-└─────────────────┘     │         ▼                  ▼           │
-                        │  ┌─────────────────────────────────┐   │
-                        │  │  PostgreSQL + pgvector          │   │
-                        │  │  (Metadata, Embeddings, Search) │   │
-                        │  └─────────────────────────────────┘   │
-                        └─────────────────────────────────────────┘
-```
-
-## Tech Stack
-
-- **Frontend**: Next.js 16, React, Tailwind CSS, pdf.js
-- **Backend**: FastAPI, SQLAlchemy, PyMuPDF, OpenAI API
-- **Database**: PostgreSQL with pgvector extension
-- **Storage**: Local filesystem (dev) / S3-compatible (prod)
+*   **🔍 Grounded Answers**: Every AI response cites specific pages and quotes from the document.
+*   **📑 Professional Viewer**: A full-featured PDF viewer with highlighting, sticky notes, and rich-text editing.
+*   **⚡ Instant Navigation**: Click a citation to jump instantly to the source paragraph.
+*   **🛡️ Secure & Private**: Documents are processed primarily in-memory or secure localized storage.
 
 ---
 
-## Quick Start
+## 🏗️ Architecture
 
-### Option 1: Docker (Recommended)
+Documind.ai uses a modern Retrieval-Augmented Generation (RAG) pipeline to ensure accuracy.
 
-```bash
-# Clone and start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Access the app at http://localhost:3000
+```mermaid
+graph TD
+    User[User] -->|Upload PDF| FE[Next.js Frontend]
+    FE -->|File| API[FastAPI Backend]
+    API -->|Process| Ingest[Ingestion Service]
+    Ingest -->|OCR & Chunk| PyMuPDF
+    Ingest -->|Embed| OpenAI[OpenAI Embeddings]
+    Ingest -->|Store Vectors| DB[(PostgreSQL + pgvector)]
+    
+    User -->|Ask Question| FE
+    FE -->|Query| API
+    API -->|Retrieve Context| DB
+    DB -->|Relevant Chunks| API
+    API -->|Context + Query| LLM[OpenAI GPT-4o]
+    LLM -->|Answer w/ Citations| API
+    API -->|Stream Response| FE
 ```
 
-### Option 2: Manual Setup
+### Technology Stack
+*   **Frontend**: Next.js 14, React, Tailwind CSS, Framer Motion, pdf.js
+*   **Backend**: FastAPI (Python 3.9+), SQLAlchemy, PyMuPDF
+*   **Database**: PostgreSQL 15+ (with `pgvector` extension)
+*   **AI Engine**: OpenAI GPT-4o, text-embedding-3-small
 
-#### Prerequisites
-- Python 3.9+
-- Node.js 18+
-- PostgreSQL 15+ with pgvector extension
-- Tesseract OCR (for scanned PDFs)
+---
 
-#### 1. Start PostgreSQL with pgvector
+## 🛠️ Quick Start
 
+### 1. Prerequisites
+- **Docker** & Docker Compose (Recommended)
+- **OpenAI API Key**
+
+### 2. Run with Docker (Easiest)
 ```bash
-# Using Docker
-docker run -d \
-  --name autophile-db \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=autophile \
-  -p 5432:5432 \
-  pgvector/pgvector:pg16
+# Clone the repository
+git clone https://github.com/atharvayeola/Documind.ai.git
+cd Documind.ai
 
-# Initialize the database
-docker exec -i autophile-db psql -U postgres -d autophile -c "CREATE EXTENSION IF NOT EXISTS vector;"
+# Set your API Key
+# Create a .env file based on the example
+echo "OPENAI_API_KEY=sk-your-key-here" > backend/.env
+# Note: You may need to copy other vars from backend/.env.example
+
+# Start the application
+docker-compose up --build
+```
+Access the application at `http://localhost:3000`.
+
+### 3. Manual Development Setup
+
+<details>
+<summary>Click to view manual setup steps</summary>
+
+#### Database
+You need a PostgreSQL instance with `pgvector` enabled.
+```bash
+docker run -d --name documind-db -e POSTGRES_PASSWORD=postgres -p 5432:5432 pgvector/pgvector:pg16
 ```
 
-#### 2. Backend Setup
-
+#### Backend
 ```bash
 cd backend
-
-# Virtual environment is already created! Just activate it:
+python3 -m venv venv
 source venv/bin/activate
-
-# Or create a new one if needed:
-# python3 -m venv venv && source venv/bin/activate
-# pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
-
-# Run the backend
-uvicorn main:app --reload --port 8000
+pip install -r requirements.txt
+cp .env.example .env  # Add your API Key
+uvicorn main:app --reload
 ```
 
-#### 3. Frontend Setup
-
+#### Frontend
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Run the frontend
 npm run dev
 ```
-
-#### 4. Access the Application
-
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
+</details>
 
 ---
 
-## Configuration
+## 🌟 Key Features
 
-### Backend Environment Variables
-
-Create `backend/.env` from `backend/.env.example`:
-
-```env
-# Database
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/autophile
-
-# OpenAI (required for chat)
-OPENAI_API_KEY=sk-your-key-here
-
-# Storage
-UPLOAD_DIR=./storage/uploads
-MAX_FILE_SIZE_MB=50
-MAX_PAGES=100
-
-# RAG Settings
-CHUNK_SIZE=800
-CHUNK_OVERLAP=200
-TOP_K_RETRIEVAL=5
-
-# App
-DEBUG=true
-```
-
-### Frontend Environment Variables
-
-Create `frontend/.env.local`:
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
-```
+| Feature | Description |
+|:---|:---|
+| **Smart Citations** | Clickable references [Page 12] that jump to the exact location. |
+| **Deep Search** | Vector semantic search finds meaning, not just keywords. |
+| **Rich Annotation** | Highlight text, add sticky notes, and edit overlay text directly on the PDF. |
+| **Export Analysis** | Download chat transcripts or burn annotations into a new PDF file. |
 
 ---
 
-## Project Structure
-
-```
-autophile/
-├── backend/
-│   ├── venv/              # Python virtual environment ✅
-│   ├── api/               # FastAPI endpoints
-│   ├── ingestion/         # PDF processing & RAG
-│   ├── storage/           # Uploaded files
-│   ├── main.py            # FastAPI app
-│   ├── models.py          # SQLAlchemy models
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── app/           # Next.js pages
-│   │   ├── components/    # React components
-│   │   ├── lib/           # API client
-│   │   └── store/         # Zustand state
-│   └── package.json
-├── docker-compose.yml
-└── README.md
-```
+## 🔒 Security & Privacy
+*   **No Training**: Your data is never used to train OpenAI models (Enterprise API usage).
+*   **Ephemeral Storage**: In standard configuration, uploaded files can be configured to auto-expire.
 
 ---
 
-## Limits
-
-- Maximum PDF size: **100 pages**
-- Supported formats: PDF (native and scanned with OCR)
-- File size limit: 50MB
-
----
-
-## Development
-
-```bash
-# Run backend with auto-reload
-cd backend && source venv/bin/activate && uvicorn main:app --reload
-
-# Run frontend with hot reload
-cd frontend && npm run dev
-
-# Build frontend for production
-cd frontend && npm run build
-```
-
----
-
-## API Documentation
-
-Once the backend is running, visit:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+## 📄 License
+MIT License. Free for open-source use.

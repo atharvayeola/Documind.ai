@@ -42,3 +42,9 @@ npm-debug.log*
 .coverage
 htmlcov/
 .pytest_cache/
+
+# AI Planning Artifacts
+implementation_plan.md
+task.md
+walkthrough.md
+*.md.tmp
