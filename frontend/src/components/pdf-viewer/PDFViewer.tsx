@@ -35,6 +35,7 @@ import {
     XCircle,
     MessageSquarePlus,
     Sparkles,
+    Check,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 
@@ -132,12 +133,13 @@ interface PDFViewerProps {
     url: string;
     documentId?: number;
     onTextSelect?: (text: string, page: number) => void;
+    onEditModeChange?: (isEditing: boolean) => void;
 }
 
 // --- Utils ---
 const generateId = () => typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-export default function PDFViewer({ url, documentId, onTextSelect }: PDFViewerProps) {
+export default function PDFViewer({ url, documentId, onTextSelect, onEditModeChange }: PDFViewerProps) {
     const { currentPage, setCurrentPage, zoom, setZoom, activeCitation } = useAppStore();
 
     const [numPages, setNumPages] = useState(0);
@@ -215,6 +217,7 @@ export default function PDFViewer({ url, documentId, onTextSelect }: PDFViewerPr
             }
             if (e.key === 'Escape') {
                 clearAllModes();
+                if (onEditModeChange) onEditModeChange(false);
                 setActiveTextId(null);
             }
         };
@@ -744,13 +747,25 @@ export default function PDFViewer({ url, documentId, onTextSelect }: PDFViewerPr
                     <div className="w-px h-6 bg-gray-300 mx-1" />
 
                     <div className="flex bg-gray-100 rounded-lg p-1 gap-1 border border-gray-200">
-                        <button onClick={() => { clearAllModes(); setHighlightMode(!highlightMode); }} className={`p-2 rounded-md transition-all ${highlightMode ? 'bg-yellow-200 text-yellow-900 border border-yellow-400' : 'hover:bg-white text-gray-900'}`} title="Highlight">
+                        <button onClick={() => {
+                            clearAllModes();
+                            setHighlightMode(!highlightMode);
+                            if (!highlightMode && onEditModeChange) onEditModeChange(true);
+                        }} className={`p-2 rounded-md transition-all ${highlightMode ? 'bg-yellow-200 text-yellow-900 border border-yellow-400' : 'hover:bg-white text-gray-900'}`} title="Highlight">
                             <Highlighter size={16} />
                         </button>
-                        <button onClick={() => { clearAllModes(); setNoteMode(!noteMode); }} className={`p-2 rounded-md transition-all ${noteMode ? 'bg-blue-200 text-blue-900 border border-blue-400' : 'hover:bg-white text-gray-900'}`} title="Add Note">
+                        <button onClick={() => {
+                            clearAllModes();
+                            setNoteMode(!noteMode);
+                            if (!noteMode && onEditModeChange) onEditModeChange(true);
+                        }} className={`p-2 rounded-md transition-all ${noteMode ? 'bg-blue-200 text-blue-900 border border-blue-400' : 'hover:bg-white text-gray-900'}`} title="Add Note">
                             <StickyNote size={16} />
                         </button>
-                        <button onClick={() => { clearAllModes(); setTextEditMode(!textEditMode); }} className={`p-2 rounded-md transition-all ${textEditMode ? 'bg-purple-200 text-purple-900 border border-purple-400' : 'hover:bg-white text-gray-900'}`} title="Add Text">
+                        <button onClick={() => {
+                            clearAllModes();
+                            setTextEditMode(!textEditMode);
+                            if (!textEditMode && onEditModeChange) onEditModeChange(true);
+                        }} className={`p-2 rounded-md transition-all ${textEditMode ? 'bg-purple-200 text-purple-900 border border-purple-400' : 'hover:bg-white text-gray-900'}`} title="Add Text">
                             <Type size={16} />
                         </button>
 
@@ -855,16 +870,32 @@ export default function PDFViewer({ url, documentId, onTextSelect }: PDFViewerPr
 
                     <div className="w-px h-6 bg-gray-300 mx-2" />
 
-                    {/* Download Button - Only if changes exist */}
+                    {/* Save Changes Button (Exits Edit Mode) */}
                     {(highlights.length > 0 || notes.length > 0 || textEdits.length > 0) && (
-                        <button
-                            onClick={handleDownload}
-                            className="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors flex items-center gap-2 shadow-sm animate-in fade-in zoom-in"
-                            title="Download Annotated PDF"
-                        >
-                            <Download size={18} />
-                            <span className="text-sm font-semibold">Save Changes</span>
-                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => {
+                                    clearAllModes();
+                                    if (onEditModeChange) onEditModeChange(false);
+                                    setActiveTextId(null);
+                                }}
+                                className="p-2 rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors flex items-center gap-2 shadow-sm animate-in fade-in zoom-in"
+                                title="Save changes and return to chat"
+                            >
+                                <Check size={18} />
+                                <span className="text-sm font-semibold hidden md:inline">Save</span>
+                            </button>
+
+                            {/* Download PDF Button */}
+                            <button
+                                onClick={handleDownload}
+                                className="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors flex items-center gap-2 shadow-sm animate-in fade-in zoom-in"
+                                title="Download Annotated PDF"
+                            >
+                                <Download size={18} />
+                                <span className="text-sm font-semibold hidden lg:inline">Download</span>
+                            </button>
+                        </div>
                     )}
                 </div>
 
@@ -1023,6 +1054,7 @@ export default function PDFViewer({ url, documentId, onTextSelect }: PDFViewerPr
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setActiveTextId(text.id);
+                                            if (onEditModeChange) onEditModeChange(true);
                                         }}
                                     >
                                         {/* Wrapper for controls */}

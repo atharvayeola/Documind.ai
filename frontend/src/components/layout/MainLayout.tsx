@@ -197,11 +197,18 @@ export default function MainLayout() {
                             {/* Left Pane: PDF Viewer */}
                             <div
                                 style={{ width: `${100 - chatWidth}%` }}
-                                className="h-full overflow-hidden flex flex-col relative"
+                                className="h-full overflow-hidden flex flex-col relative transition-all duration-300 ease-in-out"
                             >
                                 <PDFViewer
                                     url={documentApi.getPdfUrl(currentDocument.id)}
                                     documentId={currentDocument.id}
+                                    onEditModeChange={(isEditing) => {
+                                        if (isEditing) {
+                                            setChatWidth(30); // Shrink chat to 30%
+                                        } else {
+                                            setChatWidth(50); // Restore to 50%
+                                        }
+                                    }}
                                 />
                             </div>
 
