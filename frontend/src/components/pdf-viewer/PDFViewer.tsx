@@ -477,6 +477,9 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
     const handleDownload = async () => {
         if (!highlights.length && !notes.length && !textEdits.length) return;
 
+        // Revert layout on download
+        if (onEditModeChange) onEditModeChange(false);
+
         try {
             const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
             const response = await api.get(url, { responseType: 'arraybuffer' });
@@ -880,11 +883,12 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
                             <button
                                 onClick={() => {
                                     clearAllModes();
-                                    if (onEditModeChange) onEditModeChange(false);
+                                    // Keep layout expanded for download
+                                    // if (onEditModeChange) onEditModeChange(false);
                                     setActiveTextId(null);
                                 }}
                                 className="p-2 rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors flex items-center gap-2 shadow-sm animate-in fade-in zoom-in"
-                                title="Save changes and return to chat"
+                                title="Save changes"
                             >
                                 <Check size={18} />
                                 <span className="text-sm font-semibold hidden md:inline">Save</span>

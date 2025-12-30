@@ -224,6 +224,10 @@ export default function MainLayout() {
                             <div
                                 style={{ width: `${chatWidth}%` }}
                                 className="h-full overflow-hidden bg-white flex flex-col relative shadow-xl z-10"
+                                onClickCapture={() => {
+                                    // If expanded (chat < 50%), restore to 50% on interaction
+                                    if (chatWidth < 50) setChatWidth(50);
+                                }}
                             >
                                 <ChatPanel
                                     documentId={currentDocument.id}
