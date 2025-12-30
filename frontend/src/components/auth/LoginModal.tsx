@@ -95,7 +95,7 @@ export default function LoginModal() {
                         <Zap size={20} fill="currentColor" />
                     </div>
                     <h2 className="text-xl font-bold text-slate-900">Sign in to continue</h2>
-                    <p className="text-slate-500 text-sm mt-1">Save your work and access AI features</p>
+                    <p className="text-slate-500 text-sm mt-1">Save your work and access Documind.ai features</p>
                 </div>
 
                 {error && (

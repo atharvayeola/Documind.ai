@@ -1,5 +1,5 @@
 /**
- * API client for Autophile backend
+ * API client for Documind.ai backend
  */
 import axios, { AxiosError } from 'axios';
 

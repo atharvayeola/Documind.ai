@@ -102,7 +102,7 @@ export default function LoginPage() {
                         <Zap size={24} fill="currentColor" />
                     </div>
                     <h1 className="text-2xl font-bold text-slate-900">Welcome Back</h1>
-                    <p className="text-slate-500 mt-2">Sign in to continue to Autophile</p>
+                    <p className="text-slate-500 mt-2">Sign in to continue to Documind.ai</p>
                 </div>
 
                 {error && (

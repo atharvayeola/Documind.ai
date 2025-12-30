@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Autophile - PDF Copilot for Professional Services",
+  title: "Documind.ai - PDF Copilot for Professional Services",
   description: "Answer document-based client questions in minutes with AI-powered citations. Built for insurance, legal, and accounting professionals.",
   keywords: ["PDF", "AI", "RAG", "document analysis", "insurance", "legal", "accounting"],
 };

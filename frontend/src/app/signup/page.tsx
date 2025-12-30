@@ -105,7 +105,7 @@ export default function SignupPage() {
                         <Zap size={24} fill="currentColor" />
                     </div>
                     <h1 className="text-2xl font-bold text-slate-900">Create Account</h1>
-                    <p className="text-slate-500 mt-2">Get started with Autophile today</p>
+                    <p className="text-slate-500 mt-2">Get started with Documind.ai today</p>
                 </div>
 
                 {error && (

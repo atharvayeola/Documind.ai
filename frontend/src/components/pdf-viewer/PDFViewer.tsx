@@ -168,6 +168,7 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
     const [selectedHighlightColor, setSelectedHighlightColor] = useState(HIGHLIGHT_COLORS[0]);
     const [selectedNoteColor, setSelectedNoteColor] = useState(NOTE_COLORS[0]);
     const [activeTextId, setActiveTextId] = useState<string | null>(null);
+    const [isSaved, setIsSaved] = useState(false); // State for save button animation
 
     // Undo/Redo Stacks
     const [undoStack, setUndoStack] = useState<HistoryAction[]>([]);
@@ -886,12 +887,21 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
                                     // Keep layout expanded for download
                                     // if (onEditModeChange) onEditModeChange(false);
                                     setActiveTextId(null);
+
+                                    // Trigger 'Saved' animation
+                                    setIsSaved(true);
+                                    setTimeout(() => setIsSaved(false), 2000);
                                 }}
-                                className="p-2 rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors flex items-center gap-2 shadow-sm animate-in fade-in zoom-in"
+                                className={`p-2 rounded-lg transition-all flex items-center gap-2 shadow-sm animate-in fade-in zoom-in ${isSaved
+                                    ? 'bg-green-100 text-green-700 border border-green-200'
+                                    : 'bg-green-600 hover:bg-green-700 text-white'
+                                    }`}
                                 title="Save changes"
                             >
-                                <Check size={18} />
-                                <span className="text-sm font-semibold hidden md:inline">Save</span>
+                                {isSaved ? <CheckCircle2 size={18} /> : <Check size={18} />}
+                                <span className={`text-sm font-semibold hidden md:inline ${isSaved ? 'text-green-700' : 'text-white'}`}>
+                                    {isSaved ? 'Saved!' : 'Save'}
+                                </span>
                             </button>
 
                             {/* Download PDF Button */}
