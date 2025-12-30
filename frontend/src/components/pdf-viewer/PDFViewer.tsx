@@ -1010,74 +1010,78 @@ export default function PDFViewer({ url, documentId, onTextSelect }: PDFViewerPr
 
                                     {/* Editable text overlay - positioned precisely over original */}
                                     <div
-                                        className="absolute z-30 group"
+                                        className="absolute z-30"
                                         style={{
                                             left: `${text.x}%`,
                                             top: `${text.y}%`,
-                                            // Use width/height from original selection
-                                            width: text.width ? `${text.width}%` : 'auto',
-                                            height: text.height ? `${text.height}%` : 'auto',
-                                            minWidth: '50px',
-                                            minHeight: '20px',
-                                            resize: 'both',
-                                            overflow: 'visible',
                                         }}
                                     >
-                                        {/* Drag bar at top - always visible on hover */}
-                                        <div
-                                            className="absolute -top-5 left-0 right-0 h-5 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 bg-blue-500 rounded-t-md shadow-sm no-print"
-                                            onMouseDown={(e) => handleMouseDown(e, text.id, 'text')}
-                                        >
-                                            <Move size={12} className="text-white" />
-                                            <span className="text-[10px] font-medium text-white">Drag to move</span>
-                                        </div>
-
-                                        {/* Main content area with border on hover */}
-                                        <div className="relative w-full h-full border-2 border-transparent group-hover:border-blue-400 rounded-sm bg-white">
+                                        <div className="relative group">
+                                            {/* Drag bar at top - positioned above the resizable box */}
                                             <div
-                                                id={`text-edit-${text.id}`}
-                                                contentEditable
-                                                suppressContentEditableWarning
-                                                className="outline-none w-full h-full focus:bg-blue-50/30"
-                                                style={{
-                                                    // Derive font size from selection height (approx 80% of rect height for text)
-                                                    fontSize: text.height
-                                                        ? `${(text.height / 100) * (pageRef.current?.offsetHeight || 800) * 0.85}px`
-                                                        : '14px',
-                                                    lineHeight: 1.2,
-                                                    color: '#000000',
-                                                    backgroundColor: 'transparent',
-                                                    padding: '2px',
-                                                    margin: 0,
-                                                    display: 'block',
-                                                    wordWrap: 'break-word',
-                                                    whiteSpace: 'pre-wrap',
-                                                }}
-                                                dangerouslySetInnerHTML={{ __html: text.html }}
-                                                onFocus={(e) => {
-                                                    setActiveTextId(text.id);
-                                                    e.currentTarget.dataset.prev = text.html;
-                                                }}
-                                                onBlur={(e) => {
-                                                    const prev = e.currentTarget.dataset.prev || '';
-                                                    handleTextBlur(text.id, prev, e.currentTarget.innerHTML);
-                                                    setActiveTextId(null);
-                                                }}
-                                            />
-
-                                            {/* Delete button */}
-                                            <button
-                                                onClick={() => deleteItem(text.id, 'text')}
-                                                className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm no-print"
-                                                title="Delete"
+                                                className="absolute -top-6 left-0 right-0 h-6 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 bg-blue-500 rounded-t-md shadow-sm no-print z-10"
+                                                onMouseDown={(e) => handleMouseDown(e, text.id, 'text')}
                                             >
-                                                <X size={10} />
-                                            </button>
-                                        </div>
+                                                <Move size={12} className="text-white" />
+                                                <span className="text-[10px] font-medium text-white">Drag to move</span>
+                                            </div>
 
-                                        {/* Resize handle indicator */}
-                                        <div className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize opacity-0 group-hover:opacity-100 no-print bg-blue-500 rounded-tl-md flex items-center justify-center">
-                                            <div className="w-2 h-2 border-r-2 border-b-2 border-white" />
+                                            {/* Resizable container */}
+                                            <div
+                                                style={{
+                                                    width: text.width ? `${(text.width / 100) * (pageRef.current?.offsetWidth || 800)}px` : 'auto',
+                                                    height: text.height ? `${(text.height / 100) * (pageRef.current?.offsetHeight || 800)}px` : 'auto',
+                                                    minWidth: '50px',
+                                                    minHeight: '24px',
+                                                    resize: 'both',
+                                                    overflow: 'auto',
+                                                }}
+                                                className="border-2 border-transparent group-hover:border-blue-400 rounded-sm bg-white relative"
+                                            >
+                                                <div
+                                                    id={`text-edit-${text.id}`}
+                                                    contentEditable
+                                                    suppressContentEditableWarning
+                                                    className="outline-none w-full h-full min-h-[20px] focus:bg-blue-50/30"
+                                                    style={{
+                                                        fontSize: text.height
+                                                            ? `${(text.height / 100) * (pageRef.current?.offsetHeight || 800) * 0.85}px`
+                                                            : '14px',
+                                                        lineHeight: 1.2,
+                                                        color: '#000000',
+                                                        backgroundColor: 'transparent',
+                                                        padding: '4px',
+                                                        margin: 0,
+                                                        display: 'block',
+                                                        wordWrap: 'break-word',
+                                                        whiteSpace: 'pre-wrap',
+                                                    }}
+                                                    dangerouslySetInnerHTML={{ __html: text.html }}
+                                                    onFocus={(e) => {
+                                                        setActiveTextId(text.id);
+                                                        e.currentTarget.dataset.prev = text.html;
+                                                    }}
+                                                    onBlur={(e) => {
+                                                        const prev = e.currentTarget.dataset.prev || '';
+                                                        handleTextBlur(text.id, prev, e.currentTarget.innerHTML);
+                                                        setActiveTextId(null);
+                                                    }}
+                                                />
+
+                                                {/* Delete button - Fixed position inside container */}
+                                                <button
+                                                    onClick={() => deleteItem(text.id, 'text')}
+                                                    className="absolute top-0 right-0 p-1 bg-red-500 text-white rounded-bl-md opacity-0 group-hover:opacity-100 transition-opacity shadow-sm no-print z-20 hover:bg-red-600"
+                                                    title="Delete"
+                                                >
+                                                    <X size={10} />
+                                                </button>
+
+                                                {/* Resize handle indicator */}
+                                                <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none opacity-0 group-hover:opacity-50">
+                                                    <div className="w-full h-full border-r-2 border-b-2 border-blue-400" />
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
