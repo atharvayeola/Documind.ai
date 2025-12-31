@@ -149,6 +149,11 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
     // Backend ID Mapping (Local UUID -> Backend Int ID)
     const backendIdMap = useRef<Map<string, number>>(new Map());
 
+    // Sync control refs to prevent race conditions
+    const isSyncingRef = useRef(false);
+    const pausePollingRef = useRef(false);
+    const authErrorRef = useRef(false);
+
     const [numPages, setNumPages] = useState(0);
     const [showThumbnails, setShowThumbnails] = useState(true);
     const [pageWidth, setPageWidth] = useState(800);
@@ -192,8 +197,22 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
     // --- Sync Logic ---
     const loadAnnotations = async (isInitialLoad = false) => {
         console.log('[AnnotationSync] loadAnnotations called. documentId:', documentId, 'user:', user?.email, 'isInitial:', isInitialLoad);
+
+        // Skip if no auth or document
         if (!documentId || !user) {
             console.log('[AnnotationSync] Skipping load - missing documentId or user');
+            return;
+        }
+
+        // Skip polling if user is actively editing (but allow initial load)
+        if (!isInitialLoad && (draggingId || activeTextId || pausePollingRef.current)) {
+            console.log('[AnnotationSync] Skipping poll - user is actively editing');
+            return;
+        }
+
+        // Skip if already syncing or auth errored
+        if (isSyncingRef.current || authErrorRef.current) {
+            console.log('[AnnotationSync] Skipping - already syncing or auth error');
             return;
         }
 
@@ -204,7 +223,10 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
             setTextEdits([]);
             setSuggestions([]);
             backendIdMap.current.clear();
+            authErrorRef.current = false; // Reset auth error on doc switch
         }
+
+        isSyncingRef.current = true;
 
         try {
             console.log('[AnnotationSync] Fetching annotations for document:', documentId);
@@ -257,14 +279,26 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
             setNotes(newNotes);
             setTextEdits(newTexts);
             backendIdMap.current = newMap;
-        } catch (err) {
+        } catch (err: any) {
             console.error('[AnnotationSync] Failed to load annotations:', err);
+            // Handle 401 specifically - pause polling
+            if (err?.response?.status === 401) {
+                console.warn('[AnnotationSync] Auth error (401) - pausing sync polling');
+                authErrorRef.current = true;
+            }
             // On error during polling, don't clear - keep existing annotations
+        } finally {
+            isSyncingRef.current = false;
         }
     };
 
     // Load annotations when document changes
     useEffect(() => {
+        // Reset auth error on user change
+        if (user) {
+            authErrorRef.current = false;
+        }
+
         // Initial load with clear
         loadAnnotations(true);
 
@@ -1283,7 +1317,7 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
 
                             {/* Rich Text Edits - with redaction rectangles */}
                             {activeTexts.map(text => (
-                                <div key={text.id} className="annotation-item">
+                                <div key={text.id} className="annotation-item absolute inset-0 z-10">
                                     {/* Redaction: White rectangles covering original text */}
                                     {text.redactionRects?.map((rect, i) => (
                                         <div

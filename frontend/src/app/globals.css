@@ -209,3 +209,26 @@ body {
 .fade-in {
   animation: fadeIn 0.3s ease-out;
 }
+
+/* PDF Text Layer Override - ensure redactions cover original text */
+.react-pdf__Page__textContent {
+  z-index: 1 !important;
+}
+
+/* Redaction rectangles must be above text layer */
+.annotation-item {
+  position: relative;
+}
+
+/* Ensure white redaction boxes cover the text layer */
+.annotation-item .absolute.z-20 {
+  position: absolute;
+  z-index: 10 !important;
+  background-color: #ffffff !important;
+  /* Ensure solid white */
+}
+
+/* Text edit overlay above redaction */
+.annotation-item .absolute.z-30 {
+  z-index: 15 !important;
+}
