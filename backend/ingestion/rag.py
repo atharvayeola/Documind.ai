@@ -3,6 +3,7 @@ RAG Engine
 Retrieval-Augmented Generation for document Q&A
 """
 from typing import List, Tuple, Optional, AsyncGenerator
+import asyncio
 from dataclasses import dataclass
 
 from sqlalchemy import select, text
@@ -282,6 +283,7 @@ Provide a clear, well-formatted response with page citations."""
             "stage": "searching",
             "content": f"Searching document for relevant information..."
         }
+        await asyncio.sleep(0.5) # UX: Allow user to see status
         
         # Retrieve chunks first
         chunks = await self.retrieve_chunks(document_id, query, db)
@@ -320,6 +322,7 @@ Provide a clear, well-formatted response with page citations."""
             "content": f"Reading {len(chunks)} relevant sections...",
             "context": thinking_context
         }
+        await asyncio.sleep(0.8) # UX: Allow user to process context
         
         # 3. Send citations
         citations = [

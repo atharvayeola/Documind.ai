@@ -5,7 +5,7 @@
  * Professional editor with robust highlighting, draggable notes, rich text editing, and proper navigation.
  * UPDATES: Fixed Sidebar Thumbnails, Hardened Undo/Redo, explicit Text Edit mode.
  */
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -1188,348 +1188,352 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
                     )}
                 </div>
 
-                {/* PDF Canvas area */}
-                <div className="flex-1 overflow-auto flex justify-center p-8 relative annotation-container bg-slate-200/50">
-                    {/* Active Citation Badge */}
-                    <AnimatePresence>
-                        {activeCitation && activeCitation.page === currentPage && (
-                            <motion.div
-                                initial={{ opacity: 0, y: -20, scale: 0.9 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: -20, scale: 0.9 }}
-                                className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg border border-blue-500 flex items-center gap-2 max-w-lg pointer-events-none"
-                            >
-                                <div className="p-1 rounded-full bg-white/20">
-                                    <Sparkles size={12} className="text-yellow-300 fill-yellow-300" />
+                {/* Main Content Area: Canvas + Sidebar */}
+                <div className="flex-1 flex flex-row overflow-hidden relative">
+                    {/* PDF Canvas area */}
+                    <div className="flex-1 overflow-auto flex justify-center p-8 relative annotation-container bg-slate-200/50">
+                        {/* Active Citation Badge */}
+                        <AnimatePresence>
+                            {activeCitation && activeCitation.page === currentPage && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -20, scale: 0.9 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: -20, scale: 0.9 }}
+                                    className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg border border-blue-500 flex items-center gap-2 max-w-lg pointer-events-none"
+                                >
+                                    <div className="p-1 rounded-full bg-white/20">
+                                        <Sparkles size={12} className="text-yellow-300 fill-yellow-300" />
+                                    </div>
+                                    <div className="text-sm font-medium truncate max-w-[300px]">
+                                        {activeCitation.text ? `"${activeCitation.text}"` : 'Reference found on this page'}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        <Document
+                            file={url}
+                            onLoadSuccess={({ numPages }) => { setNumPages(numPages); }}
+                            onLoadError={(err) => console.error("Main PDF Load Error:", err)}
+                            loading={<Loader2 className="animate-spin text-blue-600 mt-10" />}
+                            error={
+                                <div className="flex flex-col items-center justify-center mt-20 text-red-500">
+                                    <p className="font-bold text-lg mb-2">Failed to load PDF</p>
+                                    <p className="text-sm opacity-80">Please check your network connection or the document URL.</p>
                                 </div>
-                                <div className="text-sm font-medium truncate max-w-[300px]">
-                                    {activeCitation.text ? `"${activeCitation.text}"` : 'Reference found on this page'}
+                            }
+                        >
+                            <div
+                                ref={pageRef}
+                                className="relative bg-white shadow-xl transition-shadow border border-gray-100"
+                                onClick={handlePageClick}
+                                onMouseUp={handleTextSelection}
+                                style={{
+                                    cursor: (highlightMode || editPdfTextMode) ? 'text' : (noteMode || textEditMode ? 'crosshair' : 'default'),
+                                    outline: (noteMode || textEditMode) ? '2px dashed #2563eb' : (editPdfTextMode ? '2px dashed #16a34a' : 'none'),
+                                    outlineOffset: '4px'
+                                }}
+                            >
+                                <Page
+                                    pageNumber={currentPage}
+                                    width={pageWidth * zoom}
+                                    renderTextLayer={true}
+                                    renderAnnotationLayer={false}
+                                    loading=""
+                                />
+
+                                {/* Highlights */}
+                                {activeHighlights.map(hl => (
+                                    <div key={hl.id} className="absolute inset-0 pointer-events-none">
+                                        {hl.rects.map((rect, i) => (
+                                            <div
+                                                key={i}
+                                                className="absolute group pointer-events-auto cursor-pointer mix-blend-multiply hover:opacity-80"
+                                                style={{
+                                                    left: `${rect.x}%`,
+                                                    top: `${rect.y}%`,
+                                                    width: `${rect.width}%`,
+                                                    height: `${rect.height}%`,
+                                                    backgroundColor: hl.color
+                                                }}
+                                            >
+                                                <button
+                                                    onClick={(e) => deleteHighlight(hl.id, e)}
+                                                    className="absolute -top-3 -right-3 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-all scale-75 hover:scale-100 z-50 shadow-sm no-print"
+                                                    title="Remove highlight"
+                                                >
+                                                    <X size={10} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ))}
+
+                                {/* Sticky Notes */}
+                                {activeNotes.map(note => (
+                                    <div
+                                        key={note.id}
+                                        className="absolute group z-20"
+                                        style={{ left: `${note.x}%`, top: `${note.y}%` }}
+                                    >
+                                        <div
+                                            className={`relative transition-all duration-200 ease-in-out annotation-item ${note.isOpen ? 'w-64' : 'w-8 h-8'}`}
+                                            onMouseDown={(e) => handleMouseDown(e, note.id, 'note')}
+                                        >
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setNotes(prev => prev.map(n => n.id === note.id ? { ...n, isOpen: !n.isOpen } : n)); }}
+                                                className={`absolute top-0 left-0 p-2 rounded-full shadow-md z-30 flex items-center justify-center transition-transform hover:scale-105 active:scale-95 cursor-grab active:cursor-grabbing border border-gray-300`}
+                                                style={{ backgroundColor: note.color.bg, borderColor: note.color.border }}
+                                            >
+                                                <StickyNote size={16} color={note.color.text} />
+                                            </button>
+
+                                            <AnimatePresence>
+                                                {note.isOpen && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                        exit={{ opacity: 0, scale: 0.9 }}
+                                                        className="absolute top-8 left-0 p-3 rounded-lg shadow-xl border z-20 backdrop-blur-sm"
+                                                        style={{ backgroundColor: note.color.bg + 'F0', borderColor: note.color.border }}
+                                                        onMouseDown={(e) => e.stopPropagation()}
+                                                    >
+                                                        <textarea
+                                                            className="w-full bg-transparent resize-y min-h-[100px] text-sm focus:outline-none focus:ring-1 focus:ring-black/20 rounded font-medium"
+                                                            style={{ color: note.color.text }}
+                                                            placeholder="Write a note..."
+                                                            value={note.text}
+                                                            onChange={(e) => setNotes(prev => prev.map(n => n.id === note.id ? { ...n, text: e.target.value } : n))}
+                                                            autoFocus={!note.text}
+                                                        />
+                                                        <div className="flex justify-between items-center pt-2 border-t border-black/10 mt-1">
+                                                            <span className="text-[10px] uppercase tracking-wider font-bold opacity-70" style={{ color: note.color.text }}>Note</span>
+                                                            <button onClick={() => deleteItem(note.id, 'note')} className="text-red-500 hover:bg-red-50 p-1.5 rounded-full transition-colors no-print"><Trash2 size={14} /></button>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {/* Rich Text Edits - with redaction rectangles */}
+                                {activeTexts.map(text => (
+                                    <div key={text.id} className="contents annotation-item">
+                                        {/* Redaction: White rectangles covering original text */}
+                                        {text.redactionRects?.map((rect, i) => (
+                                            <div
+                                                key={`redact-${text.id}-${i}`}
+                                                className="absolute z-20"
+                                                style={{
+                                                    left: `${rect.x}%`,
+                                                    top: `${rect.y}%`,
+                                                    width: `${rect.width}%`,
+                                                    height: `${rect.height}%`,
+                                                    backgroundColor: '#ffffff'
+                                                }}
+                                            />
+                                        ))}
+
+                                        {/* Editable text overlay - positioned precisely over original */}
+                                        <div
+                                            className="absolute z-30"
+                                            style={{
+                                                position: 'absolute',
+                                                left: `${text.x}%`,
+                                                top: `${text.y}%`,
+                                            }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setActiveTextId(text.id);
+                                                if (onEditModeChange) onEditModeChange(true);
+                                            }}
+                                        >
+                                            {/* Wrapper for controls */}
+                                            <div className={`relative group transition-all ${activeTextId === text.id ? 'z-50' : 'z-30 hover:z-40'}`}>
+
+                                                {/* Floating Toolbar - Centered above */}
+                                                {activeTextId === text.id && (
+                                                    <div
+                                                        className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white rounded-md shadow-md border border-gray-200 p-1 no-print z-50 animate-in fade-in zoom-in-95 duration-100"
+                                                        onMouseDown={(e) => e.stopPropagation()}
+                                                    >
+                                                        {/* Drag Handle */}
+                                                        <div
+                                                            className="cursor-move p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-blue-600 flex items-center"
+                                                            onMouseDown={(e) => handleMouseDown(e, text.id, 'text')}
+                                                            title="Drag to move"
+                                                        >
+                                                            <Move size={14} />
+                                                        </div>
+
+                                                        <div className="w-px h-3 bg-gray-200 mx-1" />
+
+                                                        {/* Delete Button */}
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); deleteItem(text.id, 'text'); }}
+                                                            className="p-1 hover:bg-red-50 text-gray-500 hover:text-red-500 rounded flex items-center"
+                                                            title="Delete"
+                                                        >
+                                                            <X size={14} />
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                {/* Resizable container */}
+                                                <div
+                                                    style={{
+                                                        width: text.width ? `${(text.width / 100) * (pageRef.current?.offsetWidth || 800)}px` : 'auto',
+                                                        height: text.height ? `${(text.height / 100) * (pageRef.current?.offsetHeight || 800)}px` : 'auto',
+                                                        minWidth: '50px',
+                                                        minHeight: '24px',
+                                                        resize: activeTextId === text.id ? 'both' : 'none',
+                                                        overflow: activeTextId === text.id ? 'auto' : 'hidden',
+                                                    }}
+                                                    className={`
+                                                    rounded-sm transition-all duration-200
+                                                    ${activeTextId === text.id
+                                                            ? 'border border-blue-500 bg-white ring-2 ring-blue-500/10'
+                                                            : 'border border-transparent hover:border-blue-200/50 bg-transparent'
+                                                        }
+                                                `}
+                                                >
+                                                    <div
+                                                        id={`text-edit-${text.id}`}
+                                                        contentEditable
+                                                        suppressContentEditableWarning
+                                                        className={`outline-none w-full h-full min-h-[20px] transition-colors ${activeTextId === text.id ? 'cursor-text' : 'cursor-default'}`}
+                                                        style={{
+                                                            fontSize: text.height
+                                                                ? `${(text.height / 100) * (pageRef.current?.offsetHeight || 800) * 0.85}px`
+                                                                : '14px',
+                                                            lineHeight: 1.2,
+                                                            color: '#000000',
+                                                            backgroundColor: 'transparent',
+                                                            padding: '4px',
+                                                            margin: 0,
+                                                            display: 'block',
+                                                            wordWrap: 'break-word',
+                                                            whiteSpace: 'pre-wrap',
+                                                        }}
+                                                        dangerouslySetInnerHTML={{ __html: text.html }}
+                                                        onFocus={(e) => {
+                                                            setActiveTextId(text.id);
+                                                            e.currentTarget.dataset.prev = text.html;
+                                                        }}
+                                                        onBlur={(e) => {
+                                                            const prev = e.currentTarget.dataset.prev || '';
+                                                            handleTextBlur(text.id, prev, e.currentTarget.innerHTML);
+                                                            // Don't clear active ID here immediately to avoid flickering UI when clicking controls
+                                                        }}
+                                                    />
+
+                                                    {/* Controls from here handled by floating toolbar */}
+
+                                                    {/* Resize handle indicator - Only visible when active */}
+                                                    {activeTextId === text.id && (
+                                                        <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none">
+                                                            <div className="w-full h-full border-r-2 border-b-2 border-blue-500/50" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {/* Suggestion Strikethroughs (Google Docs style) */}
+                                {activeSuggestions.map(suggestion => (
+                                    <div key={suggestion.id} className="absolute inset-0 pointer-events-none">
+                                        {suggestion.rects.map((rect, i) => (
+                                            <div
+                                                key={i}
+                                                className="absolute"
+                                                style={{
+                                                    left: `${rect.x}%`,
+                                                    top: `${rect.y}%`,
+                                                    width: `${rect.width}%`,
+                                                    height: `${rect.height}%`,
+                                                }}
+                                            >
+                                                {/* Strikethrough line */}
+                                                <div
+                                                    className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500"
+                                                    style={{ transform: 'translateY(-50%)' }}
+                                                />
+                                                {/* Light red background */}
+                                                <div className="absolute inset-0 bg-red-100/50" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                ))}
+                            </div>
+                        </Document>
+                    </div>
+
+                    {/* Compact Suggestions Sidebar */}
+                    <AnimatePresence>
+                        {showSuggestionsSidebar && pendingSuggestions.length > 0 && (
+                            <motion.div
+                                initial={{ width: 0, opacity: 0 }}
+                                animate={{ width: 220, opacity: 1 }}
+                                exit={{ width: 0, opacity: 0 }}
+                                className="bg-gray-50 border-l border-gray-200 overflow-y-auto flex flex-col no-print h-full"
+                            >
+                                <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between bg-white">
+                                    <span className="text-xs font-semibold text-gray-700">
+                                        Edits ({pendingSuggestions.length})
+                                    </span>
+                                    <button
+                                        onClick={() => setShowSuggestionsSidebar(false)}
+                                        className="p-0.5 hover:bg-gray-100 rounded"
+                                    >
+                                        <X size={14} className="text-gray-400" />
+                                    </button>
+                                </div>
+
+                                <div className="flex-1 p-2 space-y-2">
+                                    {pendingSuggestions.map(suggestion => (
+                                        <div
+                                            key={suggestion.id}
+                                            className="bg-white border border-gray-200 rounded p-2 shadow-sm text-xs"
+                                        >
+                                            <div className="text-[10px] text-gray-400 mb-1">p.{suggestion.page}</div>
+
+                                            {/* Original → New inline */}
+                                            <div className="flex items-center gap-1 mb-1.5">
+                                                <span className="line-through text-red-500 truncate max-w-[70px]" title={suggestion.originalText}>
+                                                    {suggestion.originalText}
+                                                </span>
+                                                <span className="text-gray-400">→</span>
+                                                <input
+                                                    id={`suggestion-input-${suggestion.id}`}
+                                                    type="text"
+                                                    value={suggestion.suggestedText}
+                                                    onChange={(e) => updateSuggestionText(suggestion.id, e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' && suggestion.suggestedText.trim()) {
+                                                            acceptSuggestion(suggestion.id);
+                                                        }
+                                                        if (e.key === 'Escape') {
+                                                            deleteSuggestion(suggestion.id);
+                                                        }
+                                                    }}
+                                                    placeholder="New text"
+                                                    className="flex-1 text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded border border-green-200 focus:outline-none focus:ring-1 focus:ring-green-300 min-w-0"
+                                                />
+                                            </div>
+
+                                            <div className="text-[9px] text-gray-400">
+                                                Press Enter to apply, Esc to cancel
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </motion.div>
                         )}
                     </AnimatePresence>
-
-                    <Document
-                        file={url}
-                        onLoadSuccess={({ numPages }) => { setNumPages(numPages); }}
-                        onLoadError={(err) => console.error("Main PDF Load Error:", err)}
-                        loading={<Loader2 className="animate-spin text-blue-600 mt-10" />}
-                        error={
-                            <div className="flex flex-col items-center justify-center mt-20 text-red-500">
-                                <p className="font-bold text-lg mb-2">Failed to load PDF</p>
-                                <p className="text-sm opacity-80">Please check your network connection or the document URL.</p>
-                            </div>
-                        }
-                    >
-                        <div
-                            ref={pageRef}
-                            className="relative bg-white shadow-xl transition-shadow border border-gray-100"
-                            onClick={handlePageClick}
-                            onMouseUp={handleTextSelection}
-                            style={{
-                                cursor: (highlightMode || editPdfTextMode) ? 'text' : (noteMode || textEditMode ? 'crosshair' : 'default'),
-                                outline: (noteMode || textEditMode) ? '2px dashed #2563eb' : (editPdfTextMode ? '2px dashed #16a34a' : 'none'),
-                                outlineOffset: '4px'
-                            }}
-                        >
-                            <Page
-                                pageNumber={currentPage}
-                                width={pageWidth * zoom}
-                                renderTextLayer={true}
-                                renderAnnotationLayer={false}
-                                loading=""
-                            />
-
-                            {/* Highlights */}
-                            {activeHighlights.map(hl => (
-                                <div key={hl.id} className="absolute inset-0 pointer-events-none">
-                                    {hl.rects.map((rect, i) => (
-                                        <div
-                                            key={i}
-                                            className="absolute group pointer-events-auto cursor-pointer mix-blend-multiply hover:opacity-80"
-                                            style={{
-                                                left: `${rect.x}%`,
-                                                top: `${rect.y}%`,
-                                                width: `${rect.width}%`,
-                                                height: `${rect.height}%`,
-                                                backgroundColor: hl.color
-                                            }}
-                                        >
-                                            <button
-                                                onClick={(e) => deleteHighlight(hl.id, e)}
-                                                className="absolute -top-3 -right-3 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-all scale-75 hover:scale-100 z-50 shadow-sm no-print"
-                                                title="Remove highlight"
-                                            >
-                                                <X size={10} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            ))}
-
-                            {/* Sticky Notes */}
-                            {activeNotes.map(note => (
-                                <div
-                                    key={note.id}
-                                    className="absolute group z-20"
-                                    style={{ left: `${note.x}%`, top: `${note.y}%` }}
-                                >
-                                    <div
-                                        className={`relative transition-all duration-200 ease-in-out annotation-item ${note.isOpen ? 'w-64' : 'w-8 h-8'}`}
-                                        onMouseDown={(e) => handleMouseDown(e, note.id, 'note')}
-                                    >
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); setNotes(prev => prev.map(n => n.id === note.id ? { ...n, isOpen: !n.isOpen } : n)); }}
-                                            className={`absolute top-0 left-0 p-2 rounded-full shadow-md z-30 flex items-center justify-center transition-transform hover:scale-105 active:scale-95 cursor-grab active:cursor-grabbing border border-gray-300`}
-                                            style={{ backgroundColor: note.color.bg, borderColor: note.color.border }}
-                                        >
-                                            <StickyNote size={16} color={note.color.text} />
-                                        </button>
-
-                                        <AnimatePresence>
-                                            {note.isOpen && (
-                                                <motion.div
-                                                    initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                    exit={{ opacity: 0, scale: 0.9 }}
-                                                    className="absolute top-8 left-0 p-3 rounded-lg shadow-xl border z-20 backdrop-blur-sm"
-                                                    style={{ backgroundColor: note.color.bg + 'F0', borderColor: note.color.border }}
-                                                    onMouseDown={(e) => e.stopPropagation()}
-                                                >
-                                                    <textarea
-                                                        className="w-full bg-transparent resize-y min-h-[100px] text-sm focus:outline-none focus:ring-1 focus:ring-black/20 rounded font-medium"
-                                                        style={{ color: note.color.text }}
-                                                        placeholder="Write a note..."
-                                                        value={note.text}
-                                                        onChange={(e) => setNotes(prev => prev.map(n => n.id === note.id ? { ...n, text: e.target.value } : n))}
-                                                        autoFocus={!note.text}
-                                                    />
-                                                    <div className="flex justify-between items-center pt-2 border-t border-black/10 mt-1">
-                                                        <span className="text-[10px] uppercase tracking-wider font-bold opacity-70" style={{ color: note.color.text }}>Note</span>
-                                                        <button onClick={() => deleteItem(note.id, 'note')} className="text-red-500 hover:bg-red-50 p-1.5 rounded-full transition-colors no-print"><Trash2 size={14} /></button>
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
-                                </div>
-                            ))}
-
-                            {/* Rich Text Edits - with redaction rectangles */}
-                            {activeTexts.map(text => (
-                                <div key={text.id} className="annotation-item absolute inset-0 z-10">
-                                    {/* Redaction: White rectangles covering original text */}
-                                    {text.redactionRects?.map((rect, i) => (
-                                        <div
-                                            key={`redact-${text.id}-${i}`}
-                                            className="absolute z-20"
-                                            style={{
-                                                left: `${rect.x}%`,
-                                                top: `${rect.y}%`,
-                                                width: `${rect.width}%`,
-                                                height: `${rect.height}%`,
-                                                backgroundColor: '#ffffff'
-                                            }}
-                                        />
-                                    ))}
-
-                                    {/* Editable text overlay - positioned precisely over original */}
-                                    <div
-                                        className="absolute z-30"
-                                        style={{
-                                            left: `${text.x}%`,
-                                            top: `${text.y}%`,
-                                        }}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setActiveTextId(text.id);
-                                            if (onEditModeChange) onEditModeChange(true);
-                                        }}
-                                    >
-                                        {/* Wrapper for controls */}
-                                        <div className={`relative group transition-all ${activeTextId === text.id ? 'z-50' : 'z-30 hover:z-40'}`}>
-
-                                            {/* Floating Toolbar - Centered above */}
-                                            {activeTextId === text.id && (
-                                                <div
-                                                    className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white rounded-md shadow-md border border-gray-200 p-1 no-print z-50 animate-in fade-in zoom-in-95 duration-100"
-                                                    onMouseDown={(e) => e.stopPropagation()}
-                                                >
-                                                    {/* Drag Handle */}
-                                                    <div
-                                                        className="cursor-move p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-blue-600 flex items-center"
-                                                        onMouseDown={(e) => handleMouseDown(e, text.id, 'text')}
-                                                        title="Drag to move"
-                                                    >
-                                                        <Move size={14} />
-                                                    </div>
-
-                                                    <div className="w-px h-3 bg-gray-200 mx-1" />
-
-                                                    {/* Delete Button */}
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); deleteItem(text.id, 'text'); }}
-                                                        className="p-1 hover:bg-red-50 text-gray-500 hover:text-red-500 rounded flex items-center"
-                                                        title="Delete"
-                                                    >
-                                                        <X size={14} />
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            {/* Resizable container */}
-                                            <div
-                                                style={{
-                                                    width: text.width ? `${(text.width / 100) * (pageRef.current?.offsetWidth || 800)}px` : 'auto',
-                                                    height: text.height ? `${(text.height / 100) * (pageRef.current?.offsetHeight || 800)}px` : 'auto',
-                                                    minWidth: '50px',
-                                                    minHeight: '24px',
-                                                    resize: activeTextId === text.id ? 'both' : 'none',
-                                                    overflow: activeTextId === text.id ? 'auto' : 'hidden',
-                                                }}
-                                                className={`
-                                                    rounded-sm transition-all duration-200
-                                                    ${activeTextId === text.id
-                                                        ? 'border border-blue-500 bg-white ring-2 ring-blue-500/10'
-                                                        : 'border border-transparent hover:border-blue-200/50 bg-transparent'
-                                                    }
-                                                `}
-                                            >
-                                                <div
-                                                    id={`text-edit-${text.id}`}
-                                                    contentEditable
-                                                    suppressContentEditableWarning
-                                                    className={`outline-none w-full h-full min-h-[20px] transition-colors ${activeTextId === text.id ? 'cursor-text' : 'cursor-default'}`}
-                                                    style={{
-                                                        fontSize: text.height
-                                                            ? `${(text.height / 100) * (pageRef.current?.offsetHeight || 800) * 0.85}px`
-                                                            : '14px',
-                                                        lineHeight: 1.2,
-                                                        color: '#000000',
-                                                        backgroundColor: 'transparent',
-                                                        padding: '4px',
-                                                        margin: 0,
-                                                        display: 'block',
-                                                        wordWrap: 'break-word',
-                                                        whiteSpace: 'pre-wrap',
-                                                    }}
-                                                    dangerouslySetInnerHTML={{ __html: text.html }}
-                                                    onFocus={(e) => {
-                                                        setActiveTextId(text.id);
-                                                        e.currentTarget.dataset.prev = text.html;
-                                                    }}
-                                                    onBlur={(e) => {
-                                                        const prev = e.currentTarget.dataset.prev || '';
-                                                        handleTextBlur(text.id, prev, e.currentTarget.innerHTML);
-                                                        // Don't clear active ID here immediately to avoid flickering UI when clicking controls
-                                                    }}
-                                                />
-
-                                                {/* Controls from here handled by floating toolbar */}
-
-                                                {/* Resize handle indicator - Only visible when active */}
-                                                {activeTextId === text.id && (
-                                                    <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none">
-                                                        <div className="w-full h-full border-r-2 border-b-2 border-blue-500/50" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-
-                            {/* Suggestion Strikethroughs (Google Docs style) */}
-                            {activeSuggestions.map(suggestion => (
-                                <div key={suggestion.id} className="absolute inset-0 pointer-events-none">
-                                    {suggestion.rects.map((rect, i) => (
-                                        <div
-                                            key={i}
-                                            className="absolute"
-                                            style={{
-                                                left: `${rect.x}%`,
-                                                top: `${rect.y}%`,
-                                                width: `${rect.width}%`,
-                                                height: `${rect.height}%`,
-                                            }}
-                                        >
-                                            {/* Strikethrough line */}
-                                            <div
-                                                className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500"
-                                                style={{ transform: 'translateY(-50%)' }}
-                                            />
-                                            {/* Light red background */}
-                                            <div className="absolute inset-0 bg-red-100/50" />
-                                        </div>
-                                    ))}
-                                </div>
-                            ))}
-                        </div>
-                    </Document>
                 </div>
-
-                {/* Compact Suggestions Sidebar */}
-                <AnimatePresence>
-                    {showSuggestionsSidebar && pendingSuggestions.length > 0 && (
-                        <motion.div
-                            initial={{ width: 0, opacity: 0 }}
-                            animate={{ width: 220, opacity: 1 }}
-                            exit={{ width: 0, opacity: 0 }}
-                            className="bg-gray-50 border-l border-gray-200 overflow-y-auto flex flex-col no-print"
-                        >
-                            <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between bg-white">
-                                <span className="text-xs font-semibold text-gray-700">
-                                    Edits ({pendingSuggestions.length})
-                                </span>
-                                <button
-                                    onClick={() => setShowSuggestionsSidebar(false)}
-                                    className="p-0.5 hover:bg-gray-100 rounded"
-                                >
-                                    <X size={14} className="text-gray-400" />
-                                </button>
-                            </div>
-
-                            <div className="flex-1 p-2 space-y-2">
-                                {pendingSuggestions.map(suggestion => (
-                                    <div
-                                        key={suggestion.id}
-                                        className="bg-white border border-gray-200 rounded p-2 shadow-sm text-xs"
-                                    >
-                                        <div className="text-[10px] text-gray-400 mb-1">p.{suggestion.page}</div>
-
-                                        {/* Original → New inline */}
-                                        <div className="flex items-center gap-1 mb-1.5">
-                                            <span className="line-through text-red-500 truncate max-w-[70px]" title={suggestion.originalText}>
-                                                {suggestion.originalText}
-                                            </span>
-                                            <span className="text-gray-400">→</span>
-                                            <input
-                                                id={`suggestion-input-${suggestion.id}`}
-                                                type="text"
-                                                value={suggestion.suggestedText}
-                                                onChange={(e) => updateSuggestionText(suggestion.id, e.target.value)}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter' && suggestion.suggestedText.trim()) {
-                                                        acceptSuggestion(suggestion.id);
-                                                    }
-                                                    if (e.key === 'Escape') {
-                                                        deleteSuggestion(suggestion.id);
-                                                    }
-                                                }}
-                                                placeholder="New text"
-                                                className="flex-1 text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded border border-green-200 focus:outline-none focus:ring-1 focus:ring-green-300 min-w-0"
-                                            />
-                                        </div>
-
-                                        <div className="text-[9px] text-gray-400">
-                                            Press Enter to apply, Esc to cancel
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
             </div>
         </div>
     );
