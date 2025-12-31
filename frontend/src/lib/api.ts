@@ -91,6 +91,31 @@ export interface ChatResponse {
     citations: Citation[];
 }
 
+export interface Annotation {
+    id: number;
+    document_id: number;
+    user_id: number;
+    annotation_type: string;
+    page_number: number;
+    bbox: any;
+    selected_text?: string;
+    note?: string;
+    color: string;
+    is_shared: boolean;
+    created_at: string;
+}
+
+export interface AnnotationCreate {
+    document_id: number;
+    annotation_type: string;
+    page_number: number;
+    bbox: any;
+    selected_text?: string;
+    note?: string;
+    color?: string;
+    is_shared?: boolean;
+}
+
 // Document API
 export const documentApi = {
     async upload(file: File): Promise<Document> {
@@ -237,6 +262,28 @@ export const chatApi = {
 
     async deleteSession(sessionId: number): Promise<void> {
         await api.delete(`/api/chat/sessions/${sessionId}`);
+    },
+};
+
+// Annotation API
+export const annotationApi = {
+    async list(documentId: number): Promise<Annotation[]> {
+        const response = await api.get(`/api/annotations/${documentId}`);
+        return response.data;
+    },
+
+    async create(data: AnnotationCreate): Promise<Annotation> {
+        const response = await api.post('/api/annotations/', data);
+        return response.data;
+    },
+
+    async update(id: number, data: Partial<AnnotationCreate>): Promise<Annotation> {
+        const response = await api.put(`/api/annotations/${id}`, data);
+        return response.data;
+    },
+
+    async delete(id: number): Promise<void> {
+        await api.delete(`/api/annotations/${id}`);
     },
 };
 

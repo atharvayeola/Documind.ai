@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { useAuthStore } from '@/store/authStore';
-import { api } from '@/lib/api';
+import { api, annotationApi, Annotation, AnnotationCreate } from '@/lib/api';
 import { getErrorMessage } from '@/lib/api';
 
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -144,6 +144,10 @@ const generateId = () => typeof crypto !== 'undefined' && crypto.randomUUID ? cr
 
 export default function PDFViewer({ url, documentId, onTextSelect, onEditModeChange }: PDFViewerProps) {
     const { currentPage, setCurrentPage, zoom, setZoom, activeCitation } = useAppStore();
+    const { user } = useAuthStore();
+
+    // Backend ID Mapping (Local UUID -> Backend Int ID)
+    const backendIdMap = useRef<Map<string, number>>(new Map());
 
     const [numPages, setNumPages] = useState(0);
     const [showThumbnails, setShowThumbnails] = useState(true);
@@ -184,6 +188,151 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
     const pageRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => { setIsClient(true); }, []);
+
+    // --- Sync Logic ---
+    const loadAnnotations = async () => {
+        console.log('[AnnotationSync] loadAnnotations called. documentId:', documentId, 'user:', user?.email);
+        if (!documentId || !user) {
+            console.log('[AnnotationSync] Skipping load - missing documentId or user');
+            return;
+        }
+        try {
+            console.log('[AnnotationSync] Fetching annotations for document:', documentId);
+            const serverAnns = await annotationApi.list(documentId);
+            console.log('[AnnotationSync] Received annotations from server:', serverAnns);
+            const newHighlights: Highlight[] = [];
+            const newNotes: Note[] = [];
+            const newTexts: TextEdit[] = [];
+            const newMap = new Map<string, number>();
+
+            serverAnns.forEach(ann => {
+                const localId = generateId();
+                newMap.set(localId, ann.id);
+
+                if (ann.annotation_type === 'highlight') {
+                    newHighlights.push({
+                        id: localId,
+                        page: ann.page_number,
+                        text: ann.selected_text || '',
+                        color: ann.color,
+                        rects: ann.bbox.rects || []
+                    });
+                } else if (ann.annotation_type === 'note') {
+                    newNotes.push({
+                        id: localId,
+                        page: ann.page_number,
+                        x: ann.bbox.x,
+                        y: ann.bbox.y,
+                        text: ann.note || '',
+                        color: typeof ann.color === 'string' && ann.color.startsWith('{') ? JSON.parse(ann.color) : NOTE_COLORS[0],
+                        isOpen: false
+                    });
+                } else if (ann.annotation_type === 'text') {
+                    newTexts.push({
+                        id: localId,
+                        page: ann.page_number,
+                        x: ann.bbox.x,
+                        y: ann.bbox.y,
+                        width: ann.bbox.width,
+                        height: ann.bbox.height,
+                        html: ann.note || '',
+                        redactionRects: ann.bbox.redactionRects
+                    });
+                }
+            });
+
+            console.log('[AnnotationSync] Parsed annotations - Highlights:', newHighlights.length, 'Notes:', newNotes.length, 'Texts:', newTexts.length);
+            setHighlights(newHighlights);
+            setNotes(newNotes);
+            setTextEdits(newTexts);
+            backendIdMap.current = newMap;
+        } catch (err) {
+            console.error('[AnnotationSync] Failed to load annotations:', err);
+        }
+    };
+
+    // Load on mount/doc change (Replaces polling for simplicity first, but user asked for "synced")
+    useEffect(() => {
+        loadAnnotations();
+
+        // Simple polling for sync (every 10s)
+        const interval = setInterval(loadAnnotations, 10000);
+        return () => clearInterval(interval);
+    }, [documentId, user]);
+
+    const syncCreate = async (type: 'highlight' | 'note' | 'text', item: any) => {
+        console.log('[AnnotationSync] syncCreate called. type:', type, 'documentId:', documentId, 'user:', user?.email);
+        if (!documentId || !user) {
+            console.log('[AnnotationSync] Skipping create - missing documentId or user');
+            return;
+        }
+        try {
+            const payload: AnnotationCreate = {
+                document_id: documentId,
+                annotation_type: type,
+                page_number: item.page,
+                bbox: {},
+                color: '#FFEB3B'
+            };
+
+            if (type === 'highlight') {
+                payload.bbox = { rects: item.rects };
+                payload.selected_text = item.text;
+                payload.color = item.color;
+            } else if (type === 'note') {
+                payload.bbox = { x: item.x, y: item.y };
+                payload.note = item.text;
+                payload.color = JSON.stringify(item.color);
+            } else if (type === 'text') {
+                payload.bbox = { x: item.x, y: item.y, width: item.width, height: item.height, redactionRects: item.redactionRects };
+                payload.note = item.html;
+            }
+
+            console.log('[AnnotationSync] Creating annotation with payload:', payload);
+            const res = await annotationApi.create(payload);
+            console.log('[AnnotationSync] Annotation created successfully. Backend ID:', res.id);
+            backendIdMap.current.set(item.id, res.id);
+        } catch (err) {
+            console.error('[AnnotationSync] Sync Create Failed:', err);
+        }
+    };
+
+    const syncUpdate = async (type: 'note' | 'text', item: any) => {
+        if (!documentId || !user) return;
+        const backendId = backendIdMap.current.get(item.id);
+        if (!backendId) {
+            // Check if it's pending? For now, if not found, maybe retry creating?
+            // Fallback: create new
+            return syncCreate(type, item);
+        }
+
+        try {
+            const payload: Partial<AnnotationCreate> = {};
+            if (type === 'note') {
+                payload.bbox = { x: item.x, y: item.y };
+                payload.note = item.text;
+            } else if (type === 'text') {
+                payload.bbox = { x: item.x, y: item.y, width: item.width, height: item.height };
+                payload.note = item.html;
+            }
+            await annotationApi.update(backendId, payload);
+        } catch (err) {
+            console.error('Sync Update Failed:', err);
+        }
+    };
+
+    const syncDelete = async (localId: string) => {
+        if (!documentId || !user) return;
+        const backendId = backendIdMap.current.get(localId);
+        if (backendId) {
+            try {
+                await annotationApi.delete(backendId);
+                backendIdMap.current.delete(localId);
+            } catch (err) {
+                console.error('Sync Delete Failed:', err);
+            }
+        }
+    };
 
     // Width calc
     // Width calc with animation delay
@@ -307,6 +456,7 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
             };
             setHighlights(prev => [...prev, highlight]);
             pushAction({ type: 'HIGHLIGHT_ADD', payload: highlight });
+            syncCreate('highlight', highlight);
         } else if (editPdfTextMode) {
             const selectedText = selection.toString();
 
@@ -350,6 +500,7 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
                 };
                 setTextEdits(prev => [...prev, textEdit]);
                 pushAction({ type: 'TEXT_ADD', payload: textEdit });
+                syncCreate('text', textEdit);
                 setEditPdfTextMode(false);
 
                 setTimeout(() => {
@@ -374,6 +525,7 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
         if (hl) {
             pushAction({ type: 'HIGHLIGHT_REMOVE', payload: hl });
             setHighlights(prev => prev.filter(h => h.id !== id));
+            syncDelete(id);
         }
     };
 
@@ -412,8 +564,10 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
 
             if (note && (note.x !== itemStartPos.x || note.y !== itemStartPos.y)) {
                 pushAction({ type: 'NOTE_MOVE', payload: { id: draggingId, from: itemStartPos, to: { x: note.x, y: note.y } } });
+                syncUpdate('note', note);
             } else if (text && (text.x !== itemStartPos.x || text.y !== itemStartPos.y)) {
                 pushAction({ type: 'TEXT_MOVE', payload: { id: draggingId, from: itemStartPos, to: { x: text.x, y: text.y } } });
+                syncUpdate('text', text);
             }
             setDraggingId(null);
         }
@@ -456,6 +610,7 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
             setNotes(prev => [...prev, note]);
             pushAction({ type: 'NOTE_ADD', payload: note });
             setNoteMode(false);
+            syncCreate('note', note);
         } else if (textEditMode) {
             const text: TextEdit = {
                 id: generateId(),
@@ -466,6 +621,7 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
             setTextEdits(prev => [...prev, text]);
             pushAction({ type: 'TEXT_ADD', payload: text });
             setTextEditMode(false);
+            syncCreate('text', text);
 
             // Auto focus
             setTimeout(() => {
@@ -620,6 +776,10 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
         setTextEdits(prev => prev.map(t => t.id === id ? { ...t, html: newHtml } : t));
         if (oldHtml !== newHtml) {
             pushAction({ type: 'TEXT_EDIT', payload: { id, from: oldHtml, to: newHtml } });
+            const item = textEdits.find(t => t.id === id);
+            if (item) {
+                syncUpdate('text', { ...item, html: newHtml });
+            }
         }
         if (!newHtml.trim()) deleteItem(id, 'text');
     };
@@ -630,12 +790,14 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
             if (item) {
                 setNotes(prev => prev.filter(n => n.id !== id));
                 pushAction({ type: 'NOTE_REMOVE', payload: item });
+                syncDelete(id);
             }
         } else {
             const item = textEdits.find(t => t.id === id);
             if (item) {
                 setTextEdits(prev => prev.filter(t => t.id !== id));
                 pushAction({ type: 'TEXT_REMOVE', payload: item });
+                syncDelete(id);
                 if (activeTextId === id) setActiveTextId(null);
             }
         }
