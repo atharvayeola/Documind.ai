@@ -190,12 +190,22 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
     useEffect(() => { setIsClient(true); }, []);
 
     // --- Sync Logic ---
-    const loadAnnotations = async () => {
-        console.log('[AnnotationSync] loadAnnotations called. documentId:', documentId, 'user:', user?.email);
+    const loadAnnotations = async (isInitialLoad = false) => {
+        console.log('[AnnotationSync] loadAnnotations called. documentId:', documentId, 'user:', user?.email, 'isInitial:', isInitialLoad);
         if (!documentId || !user) {
             console.log('[AnnotationSync] Skipping load - missing documentId or user');
             return;
         }
+
+        // Only clear on initial load (document switch), not on polling refresh
+        if (isInitialLoad) {
+            setHighlights([]);
+            setNotes([]);
+            setTextEdits([]);
+            setSuggestions([]);
+            backendIdMap.current.clear();
+        }
+
         try {
             console.log('[AnnotationSync] Fetching annotations for document:', documentId);
             const serverAnns = await annotationApi.list(documentId);
@@ -206,7 +216,8 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
             const newMap = new Map<string, number>();
 
             serverAnns.forEach(ann => {
-                const localId = generateId();
+                // Use backend ID as stable local ID to prevent regeneration on each poll
+                const localId = `ann-${ann.id}`;
                 newMap.set(localId, ann.id);
 
                 if (ann.annotation_type === 'highlight') {
@@ -248,23 +259,17 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
             backendIdMap.current = newMap;
         } catch (err) {
             console.error('[AnnotationSync] Failed to load annotations:', err);
+            // On error during polling, don't clear - keep existing annotations
         }
     };
 
-    // Clear annotations when document changes
+    // Load annotations when document changes
     useEffect(() => {
-        // Immediately clear old annotations when switching documents
-        setHighlights([]);
-        setNotes([]);
-        setTextEdits([]);
-        setSuggestions([]);
-        backendIdMap.current.clear();
+        // Initial load with clear
+        loadAnnotations(true);
 
-        // Then load new annotations
-        loadAnnotations();
-
-        // Simple polling for sync (every 10s)
-        const interval = setInterval(loadAnnotations, 10000);
+        // Polling refresh (no clear, just update)
+        const interval = setInterval(() => loadAnnotations(false), 10000);
         return () => clearInterval(interval);
     }, [documentId, user]);
 
