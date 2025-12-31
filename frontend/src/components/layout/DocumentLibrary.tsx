@@ -33,6 +33,7 @@ export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar',
     const [searchQuery, setSearchQuery] = useState('');
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
         const file = acceptedFiles[0];
@@ -109,16 +110,26 @@ export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar',
         maxSize: 50 * 1024 * 1024, // 50MB
     });
 
-    const handleDelete = async (id: number, e: React.MouseEvent) => {
+    const handleDeleteClick = (id: number, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (confirm('Are you sure you want to delete this document?')) {
-            try {
-                await documentApi.delete(id);
-                removeDocument(id);
-            } catch (err) {
-                console.error('Delete failed:', err);
-            }
+        setDeleteConfirmId(id);
+    };
+
+    const confirmDelete = async () => {
+        if (deleteConfirmId === null) return;
+
+        try {
+            await documentApi.delete(deleteConfirmId);
+            removeDocument(deleteConfirmId);
+        } catch (err) {
+            console.error('Delete failed:', err);
+        } finally {
+            setDeleteConfirmId(null);
         }
+    };
+
+    const cancelDelete = () => {
+        setDeleteConfirmId(null);
     };
 
     const filteredDocuments = documents.filter((doc) =>
@@ -371,7 +382,7 @@ export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar',
                                     </div>
 
                                     <button
-                                        onClick={(e) => handleDelete(doc.id, e)}
+                                        onClick={(e) => handleDeleteClick(doc.id, e)}
                                         className="p-2 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-[var(--error)]/10 text-[var(--muted)] hover:text-[var(--error)] transition-all"
                                         title="Delete Document"
                                     >
@@ -380,6 +391,45 @@ export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar',
                                 </div>
                             </motion.div>
                         ))
+                    )}
+                </AnimatePresence>
+
+                {/* Delete Confirmation Modal */}
+                <AnimatePresence>
+                    {deleteConfirmId !== null && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="p-6 text-center">
+                                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+                                        <Trash2 size={24} />
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-slate-900 mb-2">Delete Document?</h3>
+                                    <p className="text-slate-500 text-sm mb-6">
+                                        Are you sure you want to delete this document? This action cannot be undone.
+                                    </p>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={cancelDelete}
+                                            className="flex-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={confirmDelete}
+                                            className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </div>
                     )}
                 </AnimatePresence>
             </div>
