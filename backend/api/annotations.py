@@ -49,7 +49,7 @@ class AnnotationResponse(AnnotationCreate):
 
 # ==================== Endpoints ====================
 
-@router.post("/", response_model=AnnotationResponse)
+@router.post("", response_model=AnnotationResponse)
 async def create_annotation(
     annotation: AnnotationCreate,
     db: AsyncSession = Depends(get_db),

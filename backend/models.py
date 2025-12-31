@@ -124,7 +124,7 @@ class Annotation(Base):
     # Content
     selected_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    color: Mapped[str] = mapped_column(String(20), default="#FFEB3B")
+    color: Mapped[str] = mapped_column(String(255), default="#FFEB3B")
     
     # Location
     page_number: Mapped[int] = mapped_column(Integer)

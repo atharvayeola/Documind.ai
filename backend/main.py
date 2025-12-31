@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from api import documents, chat, auth, annotations
 from database import engine, Base
+from sqlalchemy import text
 
 
 @asynccontextmanager
@@ -15,6 +16,13 @@ async def lifespan(app: FastAPI):
     # Startup: Create database tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Migration: Increase annotations.color column size (safe to run multiple times)
+        try:
+            await conn.execute(text(
+                "ALTER TABLE annotations ALTER COLUMN color TYPE VARCHAR(255)"
+            ))
+        except Exception:
+            pass  # Column already correct size or table doesn't exist yet
     yield
     # Shutdown: Close connections
     await engine.dispose()

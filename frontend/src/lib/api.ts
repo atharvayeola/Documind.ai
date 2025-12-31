@@ -273,7 +273,7 @@ export const annotationApi = {
     },
 
     async create(data: AnnotationCreate): Promise<Annotation> {
-        const response = await api.post('/api/annotations/', data);
+        const response = await api.post('/api/annotations', data);
         return response.data;
     },
 
