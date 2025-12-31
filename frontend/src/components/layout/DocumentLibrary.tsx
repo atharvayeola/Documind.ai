@@ -36,10 +36,11 @@ export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar',
     const [uploadProgress, setUploadProgress] = useState(0);
     const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
-    const onDrop = useCallback(async (acceptedFiles: File[]) => {
-        const file = acceptedFiles[0];
-        if (!file) return;
+    // Duplicate Handling State
+    const [pendingFile, setPendingFile] = useState<File | null>(null);
+    const [duplicateDocId, setDuplicateDocId] = useState<number | null>(null);
 
+    const processUpload = useCallback(async (file: File) => {
         setIsUploading(true);
         setUploadProgress(0);
 
@@ -59,10 +60,7 @@ export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar',
 
             // If in hero mode, automatically select the document
             if (variant === 'hero') {
-                // Poll briefly to ensure status update then select
                 pollDocumentStatus(doc.id);
-                // We can select immediately, the main layout handles "not ready" states usually
-                // But better to wait for at least 'processing'
                 onDocumentSelect(doc);
             } else {
                 pollDocumentStatus(doc.id);
@@ -74,9 +72,58 @@ export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar',
             setTimeout(() => {
                 setIsUploading(false);
                 setUploadProgress(0);
+                setPendingFile(null);
+                setDuplicateDocId(null);
             }, 500);
         }
     }, [addDocument, onDocumentSelect, variant, addGuestDocId]);
+
+    const onDrop = useCallback(async (acceptedFiles: File[]) => {
+        const file = acceptedFiles[0];
+        if (!file) return;
+
+        // Check for duplicates
+        const existingDoc = documents.find(d => d.original_filename === file.name);
+        if (existingDoc) {
+            setPendingFile(file);
+            setDuplicateDocId(existingDoc.id);
+            return;
+        }
+
+        await processUpload(file);
+    }, [documents, processUpload]);
+
+    const handleReplace = async () => {
+        if (!pendingFile || !duplicateDocId) return;
+
+        // Delete existing first
+        try {
+            await documentApi.delete(duplicateDocId);
+            removeDocument(duplicateDocId);
+            // If replaced doc was active, we don't necessarily need to clear it since we'll open the new one, 
+            // but clearing ensures UI state is clean.
+            if (currentDocument?.id === duplicateDocId) {
+                setCurrentDocument(null);
+            }
+        } catch (err) {
+            console.error('Failed to delete existing for replace:', err);
+        }
+
+        // Proceed with upload
+        await processUpload(pendingFile);
+    };
+
+    const handleKeepBoth = async () => {
+        if (!pendingFile) return;
+        // Just upload, backend or logic will handle new ID. 
+        // Note: filenames might be same visually but IDs differ.
+        await processUpload(pendingFile);
+    };
+
+    const cancelUpload = () => {
+        setPendingFile(null);
+        setDuplicateDocId(null);
+    };
 
     const pollDocumentStatus = async (docId: number) => {
         const checkStatus = async () => {
@@ -431,6 +478,52 @@ export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar',
                                             className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors shadow-sm"
                                         >
                                             Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </div>
+                    </AnimatePresence>,
+                    document.body
+                )}
+                {/* Duplicate Resolution Modal */}
+                {pendingFile !== null && createPortal(
+                    <AnimatePresence>
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px]">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-100"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="p-6 text-center">
+                                    <div className="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-500 ring-4 ring-amber-50/50">
+                                        <FileText size={24} />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-slate-900 mb-2">Duplicate File</h3>
+                                    <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+                                        You already have a document named <span className="font-semibold text-slate-700">"{pendingFile.name}"</span>.
+                                        What would you like to do?
+                                    </p>
+                                    <div className="flex flex-col gap-3">
+                                        <button
+                                            onClick={handleReplace}
+                                            className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors shadow-sm"
+                                        >
+                                            Replace Existing
+                                        </button>
+                                        <button
+                                            onClick={handleKeepBoth}
+                                            className="w-full px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg transition-colors"
+                                        >
+                                            Keep Both
+                                        </button>
+                                        <button
+                                            onClick={cancelUpload}
+                                            className="w-full px-4 py-2 text-slate-400 hover:text-slate-600 font-medium text-sm transition-colors mt-1"
+                                        >
+                                            Cancel
                                         </button>
                                     </div>
                                 </div>
