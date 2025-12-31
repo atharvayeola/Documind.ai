@@ -251,8 +251,16 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
         }
     };
 
-    // Load on mount/doc change (Replaces polling for simplicity first, but user asked for "synced")
+    // Clear annotations when document changes
     useEffect(() => {
+        // Immediately clear old annotations when switching documents
+        setHighlights([]);
+        setNotes([]);
+        setTextEdits([]);
+        setSuggestions([]);
+        backendIdMap.current.clear();
+
+        // Then load new annotations
         loadAnnotations();
 
         // Simple polling for sync (every 10s)
