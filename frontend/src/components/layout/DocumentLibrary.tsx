@@ -4,7 +4,8 @@
  * Document Library Component
  * Lists and manages uploaded documents
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Upload,
@@ -29,7 +30,7 @@ interface DocumentLibraryProps {
 }
 
 export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar', hideUpload = false }: DocumentLibraryProps) {
-    const { documents, setDocuments, addDocument, removeDocument, addGuestDocId } = useAppStore();
+    const { documents, setDocuments, addDocument, removeDocument, addGuestDocId, currentDocument, setCurrentDocument } = useAppStore();
     const [searchQuery, setSearchQuery] = useState('');
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
@@ -121,6 +122,11 @@ export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar',
         try {
             await documentApi.delete(deleteConfirmId);
             removeDocument(deleteConfirmId);
+
+            // If the deleted document is the current one, return to home
+            if (currentDocument?.id === deleteConfirmId) {
+                setCurrentDocument(null);
+            }
         } catch (err) {
             console.error('Delete failed:', err);
         } finally {
@@ -394,35 +400,35 @@ export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar',
                     )}
                 </AnimatePresence>
 
-                {/* Delete Confirmation Modal */}
-                <AnimatePresence>
-                    {deleteConfirmId !== null && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                {/* Delete Confirmation Modal - Portaled to body to cover everything */}
+                {deleteConfirmId !== null && createPortal(
+                    <AnimatePresence>
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px]">
                             <motion.div
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden"
+                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-100"
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 <div className="p-6 text-center">
-                                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+                                    <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 ring-4 ring-red-50/50">
                                         <Trash2 size={24} />
                                     </div>
-                                    <h3 className="text-lg font-semibold text-slate-900 mb-2">Delete Document?</h3>
-                                    <p className="text-slate-500 text-sm mb-6">
+                                    <h3 className="text-lg font-bold text-slate-900 mb-2">Delete Document?</h3>
+                                    <p className="text-slate-500 text-sm mb-6 leading-relaxed">
                                         Are you sure you want to delete this document? This action cannot be undone.
                                     </p>
                                     <div className="flex gap-3">
                                         <button
                                             onClick={cancelDelete}
-                                            className="flex-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors"
+                                            className="flex-1 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg transition-colors"
                                         >
                                             Cancel
                                         </button>
                                         <button
                                             onClick={confirmDelete}
-                                            className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
+                                            className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors shadow-sm"
                                         >
                                             Delete
                                         </button>
@@ -430,8 +436,9 @@ export default function DocumentLibrary({ onDocumentSelect, variant = 'sidebar',
                                 </div>
                             </motion.div>
                         </div>
-                    )}
-                </AnimatePresence>
+                    </AnimatePresence>,
+                    document.body
+                )}
             </div>
         </div>
     );
