@@ -38,6 +38,7 @@ import {
     Check,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
+import { useAuthStore } from '@/store/authStore';
 import { api } from '@/lib/api';
 import { getErrorMessage } from '@/lib/api';
 
@@ -476,6 +477,13 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
 
     // --- Saving & Download (pdf-lib) ---
     const handleDownload = async () => {
+        // Guest Restriction: Require login for download
+        const { user } = useAuthStore.getState();
+        if (!user) {
+            useAppStore.getState().setLoginModalOpen(true);
+            return;
+        }
+
         if (!highlights.length && !notes.length && !textEdits.length) return;
 
         // Revert layout on download
