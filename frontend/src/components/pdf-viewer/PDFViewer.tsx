@@ -890,26 +890,80 @@ export default function PDFViewer({ url, documentId, onTextSelect, onEditModeCha
                         className="bg-gray-100 border-r border-gray-200 overflow-y-auto overflow-x-hidden flex flex-col gap-4 p-4 no-print h-full"
                     >
                         <Document file={url} className="flex flex-col gap-4 items-center" loading={<div className="p-4 text-center text-xs text-gray-500">Loading Thumbnails...</div>}>
-                            {numPages > 0 && Array.from(new Array(numPages), (el, index) => (
-                                <div
-                                    key={`thumb_${index + 1}`}
-                                    className={`relative cursor-pointer transition-all hover:ring-2 rounded-sm overflow-hidden ${currentPage === index + 1 ? 'ring-blue-500 ring-offset-1' : 'ring-transparent hover:ring-gray-300'}`}
-                                    onClick={() => handleGoToPage(index + 1)}
-                                >
-                                    <Page
-                                        pageNumber={index + 1}
-                                        width={120}
-                                        renderTextLayer={false}
-                                        renderAnnotationLayer={false}
-                                        onLoadError={() => { }}
-                                        loading={<div className="w-[120px] h-[155px] bg-slate-200 animate-pulse" />}
-                                    />
-                                    <div className="absolute active:scale-95 inset-0 bg-transparent" />
-                                    <span className="absolute bottom-0 right-0 bg-black/60 text-white text-[9px] px-1 rounded-tl-md backdrop-blur-sm">
-                                        {index + 1}
-                                    </span>
-                                </div>
-                            ))}
+                            {numPages > 0 && Array.from(new Array(numPages), (el, index) => {
+                                const pageNum = index + 1;
+                                const pageHighlights = highlights.filter(h => h.page === pageNum);
+                                const pageNotes = notes.filter(n => n.page === pageNum);
+                                const pageTexts = textEdits.filter(t => t.page === pageNum);
+
+                                return (
+                                    <div
+                                        key={`thumb_${pageNum}`}
+                                        className={`relative cursor-pointer transition-all hover:ring-2 rounded-sm overflow-hidden ${currentPage === pageNum ? 'ring-blue-500 ring-offset-1' : 'ring-transparent hover:ring-gray-300'}`}
+                                        onClick={() => handleGoToPage(pageNum)}
+                                    >
+                                        <Page
+                                            pageNumber={pageNum}
+                                            width={120}
+                                            renderTextLayer={false}
+                                            renderAnnotationLayer={false}
+                                            onLoadError={() => { }}
+                                            loading={<div className="w-[120px] h-[155px] bg-slate-200 animate-pulse" />}
+                                        />
+                                        {/* Annotation overlays on thumbnails */}
+                                        <div className="absolute inset-0 pointer-events-none">
+                                            {/* Highlight overlays */}
+                                            {pageHighlights.map(hl => (
+                                                hl.rects.map((rect, i) => (
+                                                    <div
+                                                        key={`thumb-hl-${hl.id}-${i}`}
+                                                        className="absolute mix-blend-multiply"
+                                                        style={{
+                                                            left: `${rect.x}%`,
+                                                            top: `${rect.y}%`,
+                                                            width: `${rect.width}%`,
+                                                            height: `${rect.height}%`,
+                                                            backgroundColor: hl.color,
+                                                        }}
+                                                    />
+                                                ))
+                                            ))}
+                                            {/* Note indicators */}
+                                            {pageNotes.map(note => (
+                                                <div
+                                                    key={`thumb-note-${note.id}`}
+                                                    className="absolute w-2 h-2 rounded-full shadow-sm"
+                                                    style={{
+                                                        left: `${note.x}%`,
+                                                        top: `${note.y}%`,
+                                                        backgroundColor: note.color.bg,
+                                                        border: `1px solid ${note.color.border}`,
+                                                    }}
+                                                />
+                                            ))}
+                                            {/* Text edit indicators */}
+                                            {pageTexts.map(text => (
+                                                <div
+                                                    key={`thumb-text-${text.id}`}
+                                                    className="absolute bg-blue-400/50 border border-blue-500/50"
+                                                    style={{
+                                                        left: `${text.x}%`,
+                                                        top: `${text.y}%`,
+                                                        width: text.width ? `${text.width}%` : '8%',
+                                                        height: text.height ? `${text.height}%` : '2%',
+                                                        minWidth: '4px',
+                                                        minHeight: '2px',
+                                                    }}
+                                                />
+                                            ))}
+                                        </div>
+                                        <div className="absolute active:scale-95 inset-0 bg-transparent pointer-events-none" />
+                                        <span className="absolute bottom-0 right-0 bg-black/60 text-white text-[9px] px-1 rounded-tl-md backdrop-blur-sm">
+                                            {pageNum}
+                                        </span>
+                                    </div>
+                                );
+                            })}
                         </Document>
                     </motion.div>
                 )}
